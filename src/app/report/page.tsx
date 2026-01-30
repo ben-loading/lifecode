@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -23,6 +23,8 @@ import { useAppContext } from '@/lib/context'
 import { useState, useEffect } from 'react'
 import { SideMenu } from '@/components/side-menu'
 import { ShareDialog } from '@/components/share-dialog'
+import { getReportJobStatus, getMainReport } from '@/lib/api-client'
+import type { ApiMainReport } from '@/lib/types/api'
 
 // 分析步骤
 const analysisStepsConfig = [
@@ -36,11 +38,15 @@ const analysisStepsConfig = [
 
 export default function ReportPage() {
   const router = useRouter()
-  const { user, hasCompletedMainReport, setHasCompletedMainReport } = useAppContext()
+  const searchParams = useSearchParams()
+  const jobId = searchParams.get('jobId')
+  const archiveId = searchParams.get('archiveId')
+  const { user, hasCompletedMainReport, setHasCompletedMainReport, setUser } = useAppContext()
   const [showMenu, setShowMenu] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
-  // 仅在报告首次生成前展示分析进度；生成过一次后，始终直接展示报告内容
-  const [isAnalyzing, setIsAnalyzing] = useState(!hasCompletedMainReport)
+  const [mainReport, setMainReport] = useState<ApiMainReport | null>(null)
+  const hasJobFromUrl = Boolean(jobId && archiveId)
+  const [isAnalyzing, setIsAnalyzing] = useState(hasJobFromUrl || !hasCompletedMainReport)
   const [currentStep, setCurrentStep] = useState(
     hasCompletedMainReport ? analysisStepsConfig.length : 0,
   )
@@ -49,42 +55,80 @@ export default function ReportPage() {
     status: currentStep >= step.id ? '完成' : currentStep === step.id - 1 ? '进行中' : '未开始',
   }))
 
-  // 模拟分析过程（仅在首次生成报告时播放）
+  // 有 jobId+archiveId 时轮询任务状态，完成后拉取主报告并更新 currentArchiveId
   useEffect(() => {
-    if (hasCompletedMainReport || !isAnalyzing) {
-      // 已经生成过报告：确保步骤展示为完成状态
-      setCurrentStep(analysisStepsConfig.length)
+    if (!jobId || !archiveId) return
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const job = await getReportJobStatus(jobId)
+        if (cancelled) return
+        if (job.status === 'running' && job.currentStep != null) {
+          setCurrentStep(job.currentStep)
+        }
+        if (job.status === 'completed') {
+          const report = await getMainReport(archiveId)
+          if (cancelled) return
+          if (report) setMainReport(report)
+          setUser((prev) => ({ ...prev, currentArchiveId: archiveId }))
+          setHasCompletedMainReport(true)
+          setIsAnalyzing(false)
+          setCurrentStep(analysisStepsConfig.length)
+          return
+        }
+        if (job.status === 'failed') {
+          setIsAnalyzing(false)
+          return
+        }
+      } catch {
+        // 继续轮询
+      }
+      if (!cancelled) setTimeout(poll, 1500)
+    }
+    poll()
+    return () => {
+      cancelled = true
+    }
+  }, [jobId, archiveId, setUser, setHasCompletedMainReport])
+
+  // 无 jobId 但有 currentArchiveId 时（如刷新页）：拉取主报告
+  useEffect(() => {
+    if (jobId || mainReport || !user.currentArchiveId) return
+    getMainReport(user.currentArchiveId).then((report) => {
+      if (report) setMainReport(report)
+    }).catch(() => {})
+  }, [jobId, user.currentArchiveId, mainReport])
+
+  // 无 jobId 时：模拟分析过程（仅首次生成报告时播放）
+  useEffect(() => {
+    if (hasJobFromUrl || hasCompletedMainReport || !isAnalyzing) {
+      if (!hasJobFromUrl) setCurrentStep(analysisStepsConfig.length)
       return
     }
-
     const interval = setInterval(() => {
       setCurrentStep((prev) => {
-        if (prev < analysisStepsConfig.length) {
-          return prev + 1
-        }
-
-        // 分析完成，切换到报告状态，并记录已完成
+        if (prev < analysisStepsConfig.length) return prev + 1
         setIsAnalyzing(false)
         setHasCompletedMainReport(true)
         return prev
       })
-    }, 1500) // 每 1.5 秒推进一个步骤
-
+    }, 1500)
     return () => clearInterval(interval)
-  }, [hasCompletedMainReport, isAnalyzing, setHasCompletedMainReport])
+  }, [hasJobFromUrl, hasCompletedMainReport, isAnalyzing, setHasCompletedMainReport])
 
-  // 人生剧本数据
+  // 人生剧本数据（优先使用 API 主报告）
   const lifeScript = {
-    title: '怒海争锋·破蛋成蝶',
+    title: mainReport?.lifeScriptTitle ?? '怒海争锋·破蛋成蝶',
     description:
+      mainReport?.lifeScriptDescription ??
       '早年性格叛逆，多才多艺但学而不精（文曲忌）。中年（32-41岁）经历重大的人生转折与压力洗礼，在动荡中确立地位。晚年掌握实权，财富丰厚。',
   }
 
-  // 核心能力数据
   const coreAbility =
+    mainReport?.coreAbility ??
     '越是危机时刻，越是规则崩坏的地方，你的直觉和执行力越强。你是天生的"战时CEO"或"救火队长"。'
 
-  const radarData = [
+  const radarData = mainReport?.radarData ?? [
     { name: '自我', value: 95, fullMark: 100 },
     { name: '财富', value: 82, fullMark: 100 },
     { name: '事业', value: 85, fullMark: 100 },
@@ -94,8 +138,7 @@ export default function ReportPage() {
     { name: '健康', value: 60, fullMark: 100 },
   ]
 
-  // 多维解析详细说明数据 - 标题固定，级别和描述可变
-  const dimensionDetails = [
+  const dimensionDetails = mainReport?.dimensionDetails ?? [
     { 
       title: '自我', 
       level: 'S级', 
@@ -277,8 +320,8 @@ export default function ReportPage() {
         <div className="px-5 py-8 space-y-8 flex flex-col">
           {/* User Info Section */}
           <section className="text-center space-y-3">
-            <h1 className="text-2xl tracking-[0.2em] font-semibold">KC小可爱</h1>
-            <p className="text-sm text-muted-foreground tracking-wide">己已 辛未 乙未 癸未</p>
+            <h1 className="text-2xl tracking-[0.2em] font-semibold">{user.archiveName || 'KC小可爱'}</h1>
+            <p className="text-sm text-muted-foreground tracking-wide">{mainReport?.baziDisplay ?? '己已 辛未 乙未 癸未'}</p>
           </section>
 
           <Separator className="bg-border" />

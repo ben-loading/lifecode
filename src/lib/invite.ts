@@ -1,0 +1,3 @@
+export const INVITE_REWARD = 20
+export const INVITE_CAP = 200
+export const INVITE_MAX_COUNT = INVITE_CAP / INVITE_REWARD

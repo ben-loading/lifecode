@@ -4,12 +4,28 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { Menu } from 'lucide-react'
 import { LoginModal } from '@/components/login-modal'
+import { SideMenu } from '@/components/side-menu'
+import { useAppContext } from '@/lib/context'
 
 export function WelcomePage() {
   const router = useRouter()
+  const { user } = useAppContext()
   const [showLoginModal, setShowLoginModal] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+
+  const handleMenuClick = () => {
+    if (user.isLoggedIn) {
+      setShowMenu(true)
+    } else {
+      setShowLoginModal(true)
+    }
+  }
 
   const handleStartDecode = () => {
+    if (!user.isLoggedIn) {
+      setShowLoginModal(true)
+      return
+    }
     router.push('/input')
   }
 
@@ -20,7 +36,7 @@ export function WelcomePage() {
         <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
           <div className="flex items-center justify-between px-5 py-4">
             <button
-              onClick={() => setShowLoginModal(true)}
+              onClick={handleMenuClick}
               className="text-foreground hover:opacity-70 transition-opacity"
             >
               <Menu className="w-5 h-5" />
@@ -59,6 +75,12 @@ export function WelcomePage() {
           setShowLoginModal(false)
           router.push('/input')
         }}
+      />
+      <SideMenu
+        isOpen={showMenu}
+        onClose={() => setShowMenu(false)}
+        archiveName={user.archiveName}
+        userEmail={user.email}
       />
     </>
   )

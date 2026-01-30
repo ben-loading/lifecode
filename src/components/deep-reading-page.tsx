@@ -6,49 +6,60 @@ import { ArrowLeft } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { PaymentDialog } from '@/components/payment-dialog'
 import { ReservationDialog } from '@/components/reservation-dialog'
+import { TopUpDialog } from '@/components/topup-dialog'
+import { useAppContext } from '@/lib/context'
+import { unlockDeepReport, getSession } from '@/lib/api-client'
+import { DEEP_REPORT_COST } from '@/lib/costs'
+import { InsufficientBalanceDialog } from '@/components/insufficient-balance-dialog'
 
 type TabType = '深度报告' | '真人1V1' | 'AI解答'
 
 const deepReports = [
-  {
-    id: 1,
-    slug: 'future-fortune',
-    title: '未来运势',
-    description: '验证前年，深度分析未来5年明年的整体运势及趋势。',
-    energy: 200,
-  },
-  {
-    id: 2,
-    slug: 'career-path',
-    title: '仕途探索',
-    description: '全方位剖析事业发展，深度探索职业生涯，打工？创业？延展创业当老板？',
-    energy: 200,
-  },
-  {
-    id: 3,
-    slug: 'wealth-road',
-    title: '财富之路',
-    description: '深度剖析个人财富格局和能力，正财、偏财、投资如何配置？',
-    energy: 200,
-  },
-  {
-    id: 4,
-    slug: 'love-marriage',
-    title: '爱情姻缘',
-    description: '撮合个人的爱情场景，提升个人的感情处理方式，感知另一半。',
-    energy: 200,
-  },
+  { id: 1, slug: 'future-fortune', title: '未来运势', description: '验证前年，深度分析未来5年明年的整体运势及趋势。', energy: 200 },
+  { id: 2, slug: 'career-path', title: '仕途探索', description: '全方位剖析事业发展，深度探索职业生涯，打工？创业？延展创业当老板？', energy: 200 },
+  { id: 3, slug: 'wealth-road', title: '财富之路', description: '深度剖析个人财富格局和能力，正财、偏财、投资如何配置？', energy: 200 },
+  { id: 4, slug: 'love-marriage', title: '爱情姻缘', description: '撮合个人的爱情场景，提升个人的感情处理方式，感知另一半。', energy: 200 },
 ]
 
 export function DeepReadingPage({ archiveName }: { archiveName?: string }) {
   const router = useRouter()
+  const { user, balance, setBalance } = useAppContext()
+  const currentArchiveId = user.currentArchiveId
   const [activeTab, setActiveTab] = useState<TabType>('深度报告')
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [showReservationDialog, setShowReservationDialog] = useState(false)
   const [hasReservation, setHasReservation] = useState(false)
-  const [currentBalance] = useState(5000) // 模拟当前能量余额
+  const [showInsufficient, setShowInsufficient] = useState(false)
+  const [showTopUp, setShowTopUp] = useState(false)
+  const [unlockLoading, setUnlockLoading] = useState<string | null>(null)
   const [reservationNumber] = useState('123456')
   const [expiryDate] = useState('2026/01/28 14:00')
+
+  const handleUnlockDeepReport = async (reportSlug: string) => {
+    if (!currentArchiveId) {
+      setShowInsufficient(true)
+      return
+    }
+    if (balance < DEEP_REPORT_COST) {
+      setShowInsufficient(true)
+      return
+    }
+    setUnlockLoading(reportSlug)
+    try {
+      const res = await unlockDeepReport(currentArchiveId, reportSlug)
+      setBalance(res.balance)
+      router.push(`/deep-reading/${reportSlug}`)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : ''
+      if (msg.includes('402') || msg.includes('不足') || msg.includes('INSUFFICIENT')) {
+        const session = await getSession().catch(() => null)
+        if (session?.user) setBalance(session.user.balance)
+        setShowInsufficient(true)
+      }
+    } finally {
+      setUnlockLoading(null)
+    }
+  }
 
   const handlePayment = () => {
     setShowPaymentDialog(true)
@@ -138,10 +149,11 @@ export function DeepReadingPage({ archiveName }: { archiveName?: string }) {
                   <div className="flex items-center justify-between pt-2">
                     <span className="text-xs text-primary font-medium">{report.energy}能量</span>
                     <button
-                      onClick={() => router.push(`/deep-reading/${report.slug}`)}
-                      className="px-4 py-1.5 bg-primary text-primary-foreground rounded-full text-xs font-medium hover:opacity-90 transition-opacity"
+                      onClick={() => handleUnlockDeepReport(report.slug)}
+                      disabled={unlockLoading === report.slug}
+                      className="px-4 py-1.5 bg-primary text-primary-foreground rounded-full text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      解锁并查看
+                      {unlockLoading === report.slug ? '解锁中…' : '解锁并查看'}
                     </button>
                   </div>
                 </div>
@@ -249,11 +261,25 @@ export function DeepReadingPage({ archiveName }: { archiveName?: string }) {
         isOpen={showPaymentDialog}
         onClose={() => setShowPaymentDialog(false)}
         onConfirm={handlePaymentConfirm}
-        currentBalance={currentBalance}
+        currentBalance={balance}
         amount={2000}
       />
 
-      {/* Reservation Dialog */}
+      <InsufficientBalanceDialog
+        isOpen={showInsufficient}
+        onClose={() => setShowInsufficient(false)}
+        onGoTopUp={() => {
+          setShowInsufficient(false)
+          setShowTopUp(true)
+        }}
+        required={DEEP_REPORT_COST}
+        currentBalance={balance}
+      />
+      <TopUpDialog
+        isOpen={showTopUp}
+        onClose={() => setShowTopUp(false)}
+      />
+
       <ReservationDialog
         isOpen={showReservationDialog}
         onClose={() => setShowReservationDialog(false)}

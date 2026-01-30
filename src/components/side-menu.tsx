@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
-import { ChevronLeft, LogOut } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ChevronLeft, LogOut, FileText } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useAppContext } from '@/lib/context'
+import { clearToken, listArchives } from '@/lib/api-client'
+import type { ApiArchive } from '@/lib/types/api'
 import { TopUpDialog } from '@/components/topup-dialog'
 import { TransactionHistoryDialog } from '@/components/transaction-history-dialog'
 
@@ -19,19 +21,40 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
   const { user, setUser, balance } = useAppContext()
   const [showTopUp, setShowTopUp] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [archiveList, setArchiveList] = useState<ApiArchive[]>([])
+
+  useEffect(() => {
+    if (isOpen && userEmail) {
+      listArchives()
+        .then((list) => setArchiveList(list ?? []))
+        .catch(() => setArchiveList([]))
+    }
+  }, [isOpen, userEmail])
 
   const handleCreateNewArchive = () => {
-    // 保持登录状态，重置当前档案信息，回到欢迎页让用户重新发起解码
-    setUser({
-      isLoggedIn: true,
-      email: user.email,
-      name: user.name,
-    })
+    // 仅清空当前档案选择，保留登录态与账号信息；旧档案仍在后端，侧栏列表会展示
+    setUser((prev) => ({
+      ...prev,
+      archiveName: undefined,
+      currentArchiveId: undefined,
+      archiveNote: undefined,
+    }))
     onClose()
     router.push('/')
   }
 
+  const handleSelectArchive = (archive: ApiArchive) => {
+    setUser((prev) => ({
+      ...prev,
+      currentArchiveId: archive.id,
+      archiveName: archive.name,
+    }))
+    onClose()
+    router.push('/report')
+  }
+
   const handleLogout = () => {
+    clearToken()
     setUser({ isLoggedIn: false })
     onClose()
     router.push('/')
@@ -77,21 +100,33 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
 
         {/* Archives List - Scrollable */}
         <div className="flex-1 overflow-y-auto px-5 space-y-3">
-          {/* Current Archive */}
-          {archiveName && (
+          {archiveList.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-muted-foreground rounded border border-dashed border-border/60">
+              暂无档案，创建新档案后将在此展示
+            </div>
+          ) : (
             <div className="space-y-2">
-              <div className="px-4 py-3 bg-primary/5 border-2 border-primary rounded text-sm font-medium text-foreground">
-                {archiveName}
-              </div>
+              {archiveList.map((archive) => {
+                const isCurrent = archive.id === user.currentArchiveId
+                return (
+                  <button
+                    key={archive.id}
+                    type="button"
+                    onClick={() => handleSelectArchive(archive)}
+                    className={`w-full text-left px-4 py-3 rounded-lg border text-sm font-medium transition-colors flex items-center gap-2 ${
+                      isCurrent
+                        ? 'bg-primary/5 border-2 border-primary text-foreground'
+                        : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    <FileText className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{archive.name || archive.id}</span>
+                    {isCurrent && <span className="text-[10px] text-primary shrink-0">当前</span>}
+                  </button>
+                )
+              })}
             </div>
           )}
-
-          {/* Other Archives (示例占位，将来可接真实档案列表) */}
-          <div className="space-y-2 pt-2">
-            <div className="px-3 py-2 text-xs text-muted-foreground rounded border border-dashed border-border/60">
-              更多历史档案展示将接入后端服务
-            </div>
-          </div>
 
           {/* Divider */}
           <div className="border-t border-border pt-4 mt-4" />

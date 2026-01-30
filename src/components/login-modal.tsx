@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useAppContext } from '@/lib/context'
+import { sendCode, login, setToken, flushPendingInviteRef, getTransactions } from '@/lib/api-client'
 
 interface LoginModalProps {
   isOpen: boolean
@@ -12,48 +13,61 @@ interface LoginModalProps {
 }
 
 export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
-  const { setUser } = useAppContext()
+  const { setUser, setBalance, setTransactions } = useAppContext()
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [codeSent, setCodeSent] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleSendCode = () => {
-    if (email) {
-      // 模拟发送验证码
+  const handleSendCode = async () => {
+    if (!email?.trim()) return
+    setError('')
+    try {
+      await sendCode({ email: email.trim() })
       setCodeSent(true)
       setCountdown(60)
       const timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer)
-            return 0
-          }
-          return prev - 1
-        })
+        setCountdown((prev) => (prev <= 1 ? (clearInterval(timer), 0) : prev - 1))
       }, 1000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '发送失败')
     }
   }
 
-  const handleSubmit = () => {
-    if (email && code) {
+  const handleSubmit = async () => {
+    if (!email?.trim() || !code?.trim()) return
+    setError('')
+    setLoading(true)
+    try {
+      const { user: apiUser, token } = await login({ email: email.trim(), code: code.trim() })
+      setToken(token)
       setUser({
         isLoggedIn: true,
-        email,
-        name: email.split('@')[0],
+        email: apiUser.email,
+        name: apiUser.name ?? email.split('@')[0],
+        inviteRef: apiUser.inviteRef,
       })
+      setBalance(apiUser.balance)
+      await flushPendingInviteRef()
+      getTransactions().then((r) => setTransactions(r.transactions)).catch(() => {})
       onSuccess()
       onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '登录失败')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleOAuthLogin = (provider: string) => {
-    // 模拟OAuth登录
+  const handleOAuthLogin = (_provider: string) => {
     setUser({
       isLoggedIn: true,
-      email: `user@${provider}.com`,
-      name: `${provider} User`,
+      email: `user@example.com`,
+      name: 'User',
     })
+    setBalance(20)
     onSuccess()
     onClose()
   }
@@ -61,6 +75,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-sm mx-auto">
+        <DialogTitle className="sr-only">登录 / 注册</DialogTitle>
         <div className="space-y-6 py-4">
           <div className="text-center">
             <h2 className="text-lg font-medium text-foreground">登录 / 注册</h2>
@@ -104,13 +119,13 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
               </div>
             </div>
           </div>
-
+          {error && <p className="text-xs text-destructive">{error}</p>}
           <Button
             onClick={handleSubmit}
             className="w-full h-11 rounded-lg"
-            disabled={!email || !code}
+            disabled={!email || !code || loading}
           >
-            登 录
+            {loading ? '登录中...' : '登 录'}
           </Button>
 
           {/* Divider */}

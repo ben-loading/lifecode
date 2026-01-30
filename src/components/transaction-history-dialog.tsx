@@ -1,6 +1,6 @@
 'use client'
 
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useAppContext } from '@/lib/context'
 
 interface TransactionHistoryDialogProps {
@@ -13,25 +13,27 @@ export function TransactionHistoryDialog({
   onClose,
 }: TransactionHistoryDialogProps) {
   const { transactions, balance } = useAppContext()
+  const list = Array.isArray(transactions) ? transactions : []
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-sm mx-auto">
+        <DialogTitle className="sr-only">充值与消费记录</DialogTitle>
         <div className="space-y-4 py-3 max-h-[420px] flex flex-col">
           <div className="text-center space-y-1">
             <h2 className="text-lg font-medium text-foreground">充值与消费记录</h2>
             <p className="text-xs text-muted-foreground">
-              当前余额：<span className="font-medium text-foreground">{balance}</span> 能量
+              当前余额：<span className="font-medium text-foreground">{balance ?? 0}</span> 能量
             </p>
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-            {transactions.length === 0 ? (
+            {list.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center pt-6">
                 暂无记录。完成一次充值或消费后，会在这里看到流水。
               </p>
             ) : (
-              transactions.map((tx) => {
+              list.map((tx) => {
                 const date = new Date(tx.createdAt)
                 const label =
                   tx.type === 'topup' ? '充值' : '消费'

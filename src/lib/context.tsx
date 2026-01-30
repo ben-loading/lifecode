@@ -1,7 +1,8 @@
 'use client'
 
-import React from "react"
-import { createContext, useContext, useState } from 'react'
+import React from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
+import { getToken, getSession, flushPendingInviteRef, savePendingInviteRefFromUrl, getTransactions, setOnUnauthorized } from './api-client'
 
 export type TransactionType = 'topup' | 'consume'
 
@@ -13,7 +14,6 @@ export interface Transaction {
   description: string
 }
 
-/** 积分获得记录（任务、兑换码等，与充值/消费记录分开） */
 export interface EarnRecord {
   id: string
   amount: number
@@ -30,19 +30,21 @@ export interface UserData {
   birthLocation?: string
   archiveNote?: string
   archiveName?: string
+  currentArchiveId?: string
+  inviteRef?: string
 }
 
 export interface AppContextType {
   user: UserData
-  setUser: (user: UserData) => void
+  setUser: (user: UserData | ((prev: UserData) => UserData)) => void
   isLoading: boolean
   setIsLoading: (loading: boolean) => void
-  /** 当前档案的主报告是否已生成过（用于控制报告页分析进度仅首次播放） */
   hasCompletedMainReport: boolean
   setHasCompletedMainReport: (value: boolean) => void
   balance: number
   setBalance: (value: number) => void
   transactions: Transaction[]
+  setTransactions: (list: Transaction[]) => void
   addTransaction: (tx: Transaction) => void
   earnRecords: EarnRecord[]
   addEarnRecord: (record: EarnRecord) => void
@@ -56,35 +58,50 @@ export interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<UserData>({
-    isLoggedIn: false,
-  })
+  const [user, setUser] = useState<UserData>({ isLoggedIn: false })
   const [isLoading, setIsLoading] = useState(false)
   const [hasCompletedMainReport, setHasCompletedMainReport] = useState(false)
-  const [balance, setBalanceState] = useState<number>(200) // mock 初始能量
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    {
-      id: 'tx_init_001',
-      type: 'topup',
-      amount: 200,
-      createdAt: new Date().toISOString(),
-      description: '初始体验能量',
-    },
-  ])
+  const [balance, setBalanceState] = useState<number>(0)
+  const [transactions, setTransactionsState] = useState<Transaction[]>([])
   const [earnRecords, setEarnRecords] = useState<EarnRecord[]>([])
 
-  const setBalance = (value: number) => {
-    setBalanceState(value)
-  }
-
-  const addTransaction = (tx: Transaction) => {
-    setTransactions((prev) => [tx, ...prev])
-  }
-
+  const setBalance = (value: number) => setBalanceState(value)
+  const setTransactions = (list: Transaction[]) => setTransactionsState(list)
+  const addTransaction = (tx: Transaction) => setTransactionsState((prev) => [tx, ...prev])
   const addEarnRecord = (record: EarnRecord) => {
     setEarnRecords((prev) => [record, ...prev])
     setBalanceState((b) => b + record.amount)
   }
+
+  useEffect(() => {
+    savePendingInviteRefFromUrl()
+  }, [])
+
+  useEffect(() => {
+    setOnUnauthorized(() => setUser({ isLoggedIn: false }))
+    return () => setOnUnauthorized(null)
+  }, [])
+
+  useEffect(() => {
+    if (!getToken()) return
+    getSession()
+      .then((res) => {
+        if (res?.user) {
+          setUser({
+            isLoggedIn: true,
+            email: res.user.email,
+            name: res.user.name,
+            inviteRef: res.user.inviteRef,
+          })
+          setBalanceState(res.user.balance)
+          return Promise.all([
+            flushPendingInviteRef(),
+            getTransactions().then((r) => setTransactionsState(r.transactions)).catch(() => {}),
+          ])
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   return (
     <AppContext.Provider
@@ -98,6 +115,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         balance,
         setBalance,
         transactions,
+        setTransactions,
         addTransaction,
         earnRecords,
         addEarnRecord,
@@ -110,8 +128,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
 export function useAppContext() {
   const context = useContext(AppContext)
-  if (!context) {
-    throw new Error('useAppContext must be used within AppProvider')
-  }
+  if (!context) throw new Error('useAppContext must be used within AppProvider')
   return context
 }

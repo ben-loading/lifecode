@@ -7,19 +7,22 @@ import { useAppContext } from '@/lib/context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { redeemCode as apiRedeemCode, getTransactions } from '@/lib/api-client'
 
 const DISCORD_INVITE_URL = 'https://discord.gg/your-server' // 可后续改为真实 Discord 邀请链接
 
 export default function TaskCenterPage() {
   const router = useRouter()
-  const { balance, earnRecords, addEarnRecord } = useAppContext()
+  const { user, balance, setBalance, setTransactions, earnRecords, addEarnRecord } = useAppContext()
   const [redeemCode, setRedeemCode] = useState('')
   const [redeemStatus, setRedeemStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [copyInviteOk, setCopyInviteOk] = useState(false)
 
+  const inviteRef = user?.inviteRef ?? ''
+
   const handleCopyInviteLink = async () => {
+    if (!inviteRef) return
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    const inviteRef = 'ref_user' // 后续可替换为当前用户邀请码
     const link = `${origin}/?invite=${inviteRef}`
     try {
       await navigator.clipboard.writeText(link)
@@ -30,26 +33,29 @@ export default function TaskCenterPage() {
     }
   }
 
-  const handleRedeem = () => {
+  const handleRedeem = async () => {
     const code = redeemCode.trim()
     if (!code) {
       setRedeemStatus('error')
       return
     }
     setRedeemStatus('loading')
-    // 模拟校验：任意非空即通过，实际接后端校验兑换码
-    setTimeout(() => {
-      const amount = 50 // 示例：兑换码固定 50 积分，后续可由后端返回
+    try {
+      const res = await apiRedeemCode(code)
+      setBalance(res.balance)
       addEarnRecord({
         id: `earn_${Date.now()}`,
-        amount,
-        reason: `Discord 活动兑换码（${code.slice(0, 6)}***）`,
+        amount: res.amount,
+        reason: `兑换码（${code.slice(0, 6)}***）`,
         createdAt: new Date().toISOString(),
       })
       setRedeemCode('')
       setRedeemStatus('success')
+      getTransactions().then((r) => setTransactions(r.transactions)).catch(() => {})
       setTimeout(() => setRedeemStatus('idle'), 2000)
-    }, 500)
+    } catch {
+      setRedeemStatus('error')
+    }
   }
 
   return (
@@ -89,9 +95,10 @@ export default function TaskCenterPage() {
                 onClick={handleCopyInviteLink}
                 variant="outline"
                 className="w-full gap-2 border-border"
+                disabled={!inviteRef}
               >
                 <Copy className="w-4 h-4" />
-                {copyInviteOk ? '已复制邀请链接' : '复制邀请链接'}
+                {copyInviteOk ? '已复制邀请链接' : inviteRef ? '复制邀请链接' : '加载中…'}
               </Button>
             </CardContent>
           </Card>

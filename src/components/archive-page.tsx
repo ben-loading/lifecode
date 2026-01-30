@@ -5,19 +5,56 @@ import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAppContext } from '@/lib/context'
 import { useState } from 'react'
+import { createArchive, createReportJob } from '@/lib/api-client'
+import { MAIN_REPORT_COST } from '@/lib/costs'
+import { LoginModal } from '@/components/login-modal'
+import { InsufficientBalanceDialog } from '@/components/insufficient-balance-dialog'
 
 export function ArchivePage() {
   const router = useRouter()
-  const { user, setUser } = useAppContext()
+  const { user, setUser, balance, setBalance } = useAppContext()
   const [archiveNote, setArchiveNote] = useState('')
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [showInsufficient, setShowInsufficient] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleStartDecode = () => {
-    if (archiveNote) {
-      setUser({
-        ...user,
-        archiveNote,
+  const handleStartDecode = async () => {
+    if (!archiveNote?.trim()) return
+    if (!user.isLoggedIn) {
+      setShowLoginModal(true)
+      return
+    }
+    if (!user.gender || !user.birthDate || !user.birthLocation) {
+      setError('请先完善性别、出生日期与出生地')
+      return
+    }
+    if (balance < MAIN_REPORT_COST) {
+      setShowInsufficient(true)
+      return
+    }
+    setError('')
+    setLoading(true)
+    try {
+      const archive = await createArchive({
+        name: archiveNote.trim().slice(0, 12),
+        gender: user.gender,
+        birthDate: user.birthDate,
+        birthLocation: user.birthLocation,
       })
-      router.push('/report')
+      const { jobId } = await createReportJob({ archiveId: archive.id })
+      setBalance(balance - MAIN_REPORT_COST)
+      setUser((prev) => ({
+        ...prev,
+        archiveName: archiveNote.trim(),
+        archiveNote: archiveNote.trim(),
+        currentArchiveId: archive.id,
+      }))
+      router.push(`/report?jobId=${jobId}&archiveId=${archive.id}`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '发起失败')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -63,18 +100,31 @@ export function ArchivePage() {
         </div>
 
         <div className="pt-4 space-y-3">
+          {error && <p className="text-xs text-destructive text-center">{error}</p>}
           <Button
             onClick={handleStartDecode}
-            disabled={!archiveNote.trim()}
+            disabled={!archiveNote.trim() || loading}
             className="w-full h-12 rounded-lg"
           >
-            开启解码
+            {loading ? '发起中…' : '开启解码'}
           </Button>
           <p className="text-xs text-muted-foreground text-center">
             不用担心，这份编码对会得到安全的保护
           </p>
         </div>
       </div>
+
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onSuccess={() => setShowLoginModal(false)}
+      />
+      <InsufficientBalanceDialog
+        isOpen={showInsufficient}
+        onClose={() => setShowInsufficient(false)}
+        required={MAIN_REPORT_COST}
+        currentBalance={balance}
+      />
     </main>
   )
 }

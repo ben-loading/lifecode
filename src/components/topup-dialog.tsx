@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useAppContext } from '@/lib/context'
+import { topup as apiTopup, getTransactions, getSession } from '@/lib/api-client'
 
 interface TopUpDialogProps {
   isOpen: boolean
@@ -13,39 +14,37 @@ interface TopUpDialogProps {
 const PRESET_AMOUNTS = [200, 500, 1000]
 
 export function TopUpDialog({ isOpen, onClose }: TopUpDialogProps) {
-  const { balance, setBalance, addTransaction } = useAppContext()
+  const { balance, setBalance, setTransactions } = useAppContext()
   const [selectedAmount, setSelectedAmount] = useState<number>(PRESET_AMOUNTS[0])
   const [isProcessing, setIsProcessing] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [error, setError] = useState('')
 
   const handleConfirm = async () => {
+    setError('')
     setIsProcessing(true)
-
-    // TODO: 这里将来接 Stripe / 支付服务
-    await new Promise((resolve) => setTimeout(resolve, 1200))
-
-    const newBalance = balance + selectedAmount
-    setBalance(newBalance)
-    addTransaction({
-      id: `tx_topup_${Date.now()}`,
-      type: 'topup',
-      amount: selectedAmount,
-      createdAt: new Date().toISOString(),
-      description: '手动充值能量（模拟）',
-    })
-
-    setIsProcessing(false)
-    setIsSuccess(true)
-
-    setTimeout(() => {
-      setIsSuccess(false)
-      onClose()
-    }, 900)
+    try {
+      const res = await apiTopup(selectedAmount)
+      setBalance(res.balance)
+      const list = await getTransactions()
+      setTransactions(list.transactions)
+      setIsSuccess(true)
+      setTimeout(() => {
+        setIsSuccess(false)
+        onClose()
+      }, 900)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '充值失败')
+      getSession().then((s) => s?.user && setBalance(s.user.balance)).catch(() => {})
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-sm mx-auto">
+        <DialogTitle className="sr-only">充值能量</DialogTitle>
         <div className="space-y-6 py-4">
           {!isSuccess ? (
             <>
@@ -92,6 +91,8 @@ export function TopUpDialog({ isOpen, onClose }: TopUpDialogProps) {
                   当前为产品设计阶段，支付流程为模拟。未来将接入 Stripe / 第三方支付，所有真实支付都会在此弹窗中发起。
                 </p>
               </div>
+
+              {error && <p className="text-xs text-destructive">{error}</p>}
 
               <div className="flex gap-2">
                 <Button
