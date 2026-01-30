@@ -1,0 +1,185 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { ArrowLeft, Copy, ExternalLink, Gift } from 'lucide-react'
+import { useAppContext } from '@/lib/context'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
+
+const DISCORD_INVITE_URL = 'https://discord.gg/your-server' // 可后续改为真实 Discord 邀请链接
+
+export default function TaskCenterPage() {
+  const router = useRouter()
+  const { balance, earnRecords, addEarnRecord } = useAppContext()
+  const [redeemCode, setRedeemCode] = useState('')
+  const [redeemStatus, setRedeemStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [copyInviteOk, setCopyInviteOk] = useState(false)
+
+  const handleCopyInviteLink = async () => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const inviteRef = 'ref_user' // 后续可替换为当前用户邀请码
+    const link = `${origin}/?invite=${inviteRef}`
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopyInviteOk(true)
+      setTimeout(() => setCopyInviteOk(false), 2000)
+    } catch {
+      setRedeemStatus('error')
+    }
+  }
+
+  const handleRedeem = () => {
+    const code = redeemCode.trim()
+    if (!code) {
+      setRedeemStatus('error')
+      return
+    }
+    setRedeemStatus('loading')
+    // 模拟校验：任意非空即通过，实际接后端校验兑换码
+    setTimeout(() => {
+      const amount = 50 // 示例：兑换码固定 50 积分，后续可由后端返回
+      addEarnRecord({
+        id: `earn_${Date.now()}`,
+        amount,
+        reason: `Discord 活动兑换码（${code.slice(0, 6)}***）`,
+        createdAt: new Date().toISOString(),
+      })
+      setRedeemCode('')
+      setRedeemStatus('success')
+      setTimeout(() => setRedeemStatus('idle'), 2000)
+    }, 500)
+  }
+
+  return (
+    <main className="min-h-screen bg-background text-foreground max-w-md mx-auto flex flex-col">
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="flex items-center gap-3 px-5 py-4">
+          <button
+            onClick={() => router.back()}
+            className="text-foreground hover:opacity-70 transition-opacity"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-lg font-medium tracking-wide">任务中心</h1>
+        </div>
+      </header>
+
+      <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
+        {/* 当前积分 */}
+        <div className="flex items-baseline justify-between rounded-lg border border-border bg-muted/20 px-4 py-3">
+          <span className="text-sm text-muted-foreground">当前能量</span>
+          <span className="text-xl font-medium text-foreground">{balance}</span>
+        </div>
+
+        {/* 任务一：邀请任务 */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-foreground tracking-wide">邀请任务</h2>
+          <Card className="border-border shadow-none">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-base font-medium text-foreground">邀请好友</span>
+                <span className="text-sm font-medium text-primary">+20 积分</span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                受邀人需要完成注册并生成一份基础的人生分析（主界面的报告生成），您即可获得 20 积分。
+              </p>
+              <Button
+                onClick={handleCopyInviteLink}
+                variant="outline"
+                className="w-full gap-2 border-border"
+              >
+                <Copy className="w-4 h-4" />
+                {copyInviteOk ? '已复制邀请链接' : '复制邀请链接'}
+              </Button>
+            </CardContent>
+          </Card>
+        </section>
+
+        <Separator className="bg-border" />
+
+        {/* 任务二：Discord 活动 + 兑换码 */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-foreground tracking-wide">参与 Discord 活动</h2>
+          <Card className="border-border shadow-none">
+            <CardContent className="p-4 space-y-4">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                加入 Discord 社群参与活动，获取积分兑换码后在此处兑换。
+              </p>
+              <Button
+                onClick={() => window.open(DISCORD_INVITE_URL, '_blank')}
+                className="w-full gap-2"
+              >
+                <ExternalLink className="w-4 h-4" />
+                加入 Discord
+              </Button>
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground">兑换码</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={redeemCode}
+                    onChange={(e) => setRedeemCode(e.target.value)}
+                    placeholder="请输入兑换码"
+                    className="flex-1 px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <Button
+                    onClick={handleRedeem}
+                    disabled={redeemStatus === 'loading' || !redeemCode.trim()}
+                    variant="outline"
+                    className="shrink-0 border-border"
+                  >
+                    {redeemStatus === 'loading' ? '兑换中…' : redeemStatus === 'success' ? '兑换成功' : '兑换'}
+                  </Button>
+                </div>
+                {redeemStatus === 'error' && (
+                  <p className="text-xs text-destructive">兑换失败，请检查兑换码或稍后重试。</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <Separator className="bg-border" />
+
+        {/* 积分获得记录（与充值记录分开） */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-foreground tracking-wide">积分获得记录</h2>
+          <div className="rounded-lg border border-border bg-muted/10 overflow-hidden">
+            {earnRecords.length === 0 ? (
+              <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+                暂无记录。完成邀请任务或使用兑换码后，将在此展示。
+              </div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {earnRecords.map((r) => {
+                  const date = new Date(r.createdAt)
+                  return (
+                    <li
+                      key={r.id}
+                      className="flex items-center justify-between px-4 py-3"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Gift className="w-4 h-4 shrink-0 text-primary" />
+                        <div className="min-w-0">
+                          <p className="text-sm text-foreground truncate">{r.reason}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-medium text-primary shrink-0 ml-2">
+                        +{r.amount}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        </section>
+      </div>
+    </main>
+  )
+}
