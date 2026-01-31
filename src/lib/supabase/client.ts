@@ -8,19 +8,16 @@ import { createBrowserClient } from '@supabase/ssr'
 function getEnvVars() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  
+
   if (!url || !anonKey) {
-    // 在构建期间或环境变量未设置时，返回占位值以避免构建失败
-    // 实际运行时会使用正确的环境变量
-    if (typeof window === 'undefined') {
-      return {
-        url: 'https://placeholder.supabase.co',
-        anonKey: 'placeholder-key'
-      }
+    // 构建或运行时未配置时使用占位值，避免客户端抛错导致白屏
+    // 配置好 Vercel 环境变量并重新部署后，登录等功能会正常
+    return {
+      url: url || 'https://placeholder.supabase.co',
+      anonKey: anonKey || 'placeholder-key',
     }
-    throw new Error('Supabase environment variables not set')
   }
-  
+
   return { url, anonKey }
 }
 

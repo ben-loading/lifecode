@@ -90,36 +90,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    const supabase = getSupabaseClient()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-      if (event === 'TOKEN_REFRESHED' && session?.access_token) {
-        setToken(session.access_token)
-      }
-      if (event === 'SIGNED_OUT') {
-        setUser({ isLoggedIn: false })
-      }
-    })
-    return () => subscription.unsubscribe()
+    try {
+      const supabase = getSupabaseClient()
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+        if (event === 'TOKEN_REFRESHED' && session?.access_token) {
+          setToken(session.access_token)
+        }
+        if (event === 'SIGNED_OUT') {
+          setUser({ isLoggedIn: false })
+        }
+      })
+      return () => subscription.unsubscribe()
+    } catch {
+      return () => {}
+    }
   }, [])
 
   useEffect(() => {
     const initSession = async () => {
-      const supabase = getSupabaseClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.access_token) {
-        setToken(session.access_token)
-      }
-      const res = await getSession()
-      if (res?.user) {
-        setUser({
-          isLoggedIn: true,
-          email: res.user.email,
-          name: res.user.name,
-          inviteRef: res.user.inviteRef,
-        })
-        setBalanceState(res.user.balance)
-        await flushPendingInviteRef()
-        getTransactions().then((r) => setTransactionsState(r.transactions)).catch(() => {})
+      try {
+        const supabase = getSupabaseClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.access_token) {
+          setToken(session.access_token)
+        }
+        const res = await getSession()
+        if (res?.user) {
+          setUser({
+            isLoggedIn: true,
+            email: res.user.email,
+            name: res.user.name,
+            inviteRef: res.user.inviteRef,
+          })
+          setBalanceState(res.user.balance)
+          await flushPendingInviteRef()
+          getTransactions().then((r) => setTransactionsState(r.transactions)).catch(() => {})
+        }
+      } catch {
+        // 环境未配置或网络失败时保持未登录状态，不抛错
       }
     }
     initSession()
