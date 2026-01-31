@@ -237,6 +237,52 @@ API 扣除能量 → 创建任务 (ReportJob)
 - 项目构建成功（`npm run build` 通过）
 - 主报告流程整合进产品：报告页空状态与「仅真实任务显示分析中」逻辑，并补充「体验主报告流程」说明
 
+### 2026-01-29（Phase 3 完成）
+- ✅ **出生信息输入系统重构**：
+  - 新增公历/农历历制选择（对接 iztro 的 bySolar/byLunar）
+  - 新增时辰/具体时间两种输入模式
+  - 时辰模式隐藏地区选择（以时辰中点为准）
+  - 具体时间模式必填地区（用于真太阳时校准）
+  
+- ✅ **真太阳时校准实现**：
+  - 创建 `src/lib/birth-constants.ts`（时辰常量 + 经度映射 + EoT 计算）
+  - 实现经度偏移 + Equation of Time 双重修正
+  - 精度：±5 分钟（受 EoT 简化算法影响）
+  
+- ✅ **iztro 集成优化**：
+  - 修复节气四柱配置（`yearDivide: 'exact', horoscopeDivide: 'exact'`）
+  - 修复 hourToTimeIndex 映射（23:00 -> 晚子时 index=12）
+  - 实现 bySolar/byLunar 条件调用
+  - 前端命盘页（`/chart`）与后端服务逻辑一致
+  
+- ✅ **数据模型扩展**：
+  - 新增字段：`birthCalendar`, `birthTimeMode`, `birthTimeBranch`, `lunarDate`, `isLeapMonth`
+  - 更新 API 类型（`CreateArchiveBody`/`ApiArchive`）
+  - 更新 Context（`UserData`）
+  - 后端验证：时辰模式 birthLocation 可选，农历必填 lunarDate
+  
+- ✅ **前端 UI 优化**：
+  - 输入页重构：克制简约设计，去除 emoji，保持专业气质
+  - 新增分段式控件（公历/农历、时辰/具体时间）
+  - 动态表单：农历显示年/月/日+闰月，时辰模式隐藏地区
+  - 报告页进度优化：前端计时器驱动，后端仅轮询完成状态
+  - 进度时间分配：70s 总流程分摊至 6 步骤（10+10+12+13+25s）
+  - 长步骤显示 spinner 动画，避免"卡死感"
+  
+- ✅ **测试与调试**：
+  - 创建 `scripts/simulate-report-generation.ts`（模拟报告生成）
+  - 创建 `scripts/validate-report-format.ts`（验证格式）
+  - 测试输出保存至 `test-output/` 目录
+  - 创建 `/api/debug/store` 接口（查看内存存储状态）
+
+- ✅ **文档完善**：
+  - 创建 `docs/SUMMARY.md`（产品与研发总结）
+  - 更新 `docs/PROGRESS.md`（本文件）
+  - Git 提交：`64c64e0` - feat: 实现公历/农历、时辰/具体时间输入与真太阳时校准
+
 ---
 
-**下一步重点**：配置 `OPENAI_API_KEY` 或 `DEEPSEEK_API_KEY` 并测试真实 LLM 调用
+**下一步重点**：
+1. 测试真实 LLM 调用（配置 API Key 后完整流程测试）
+2. 收集真实案例，优化 LLM 输出质量
+3. 数据库迁移（从内存存储切换到 PostgreSQL）
