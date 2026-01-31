@@ -37,9 +37,16 @@ model Archive {
   name          String
   gender        String   // 'male' | 'female'
   birthDate     DateTime
-  birthLocation String
+  birthLocation String?  // 仅 datetime 模式必填
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  
+  // 新增：出生信息扩展字段
+  birthCalendar   String?  // 'solar' | 'lunar'
+  birthTimeMode   String?  // 'datetime' | 'shichen'
+  birthTimeBranch Int?     // 0-12 时辰序号
+  lunarDate       String?  // 农历日期 YYYY-M-D
+  isLeapMonth     Boolean? // 是否闰月
   
   // 关联
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
