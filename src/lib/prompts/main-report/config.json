@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "description": "主报告生成 Prompt v1.0 - 基于八字+紫微双核算法",
+  "model": "gpt-4o",
+  "deepseekModel": "deepseek-chat",
+  "temperature": 0.7,
+  "maxTokens": 8000,
+  "responseFormat": {
+    "type": "json_object"
+  },
+  "notes": "model 用于 OpenAI；deepseekModel 用于 DeepSeek（LLM_PROVIDER=deepseek 时生效）。temperature、maxTokens 可调。"
+}

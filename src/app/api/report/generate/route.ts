@@ -4,7 +4,8 @@ import { getUserIdFromRequest } from '@/lib/auth-server'
 import { parseJsonBody, badRequest, unauthorized, serverError } from '@/lib/api-utils'
 import { MAIN_REPORT_COST } from '@/lib/costs'
 import { INVITE_REWARD, INVITE_MAX_COUNT } from '@/lib/invite'
-import type { ApiReportJob, ApiMainReport } from '@/lib/types/api'
+import type { ApiReportJob } from '@/lib/types/api'
+import { generateMainReport } from '@/lib/services/report-service'
 
 function processInvitesOnMainReportComplete(inviteeUserId: string) {
   const pending = Array.from(store.invites.values()).filter(
@@ -32,59 +33,52 @@ const STEPS = [
   '输出解码结果',
 ]
 
-function runReportJob(jobId: string, archiveId: string) {
+async function runReportJob(jobId: string, archiveId: string) {
   const job = store.reportJobs.get(jobId)
   if (!job || job.status !== 'running') return
+  
   let step = 0
   const totalSteps = STEPS.length
-  const tick = () => {
+  
+  const tick = async () => {
     step += 1
     const j = store.reportJobs.get(jobId)
     if (!j || j.status !== 'running') return
+    
     j.currentStep = step
     j.totalSteps = totalSteps
     j.stepLabel = STEPS[step - 1]
+    
+    // 最后一步：调用真实的 LLM 生成逻辑
     if (step >= totalSteps) {
-      j.status = 'completed'
-      j.completedAt = new Date().toISOString()
-      j.stepLabel = undefined
-      const archive = store.archives.get(archiveId)
-      if (archive) {
-        const report: ApiMainReport = {
-          archiveId,
-          lifeScriptTitle: '怒海争锋·破蛋成蝶',
-          lifeScriptDescription:
-            '早年性格叛逆，多才多艺但学而不精（文曲忌）。中年（32-41岁）经历重大的人生转折与压力洗礼，在动荡中确立地位。晚年掌握实权，财富丰厚。',
-          coreAbility:
-            '越是危机时刻，越是规则崩坏的地方，你的直觉和执行力越强。你是天生的"战时CEO"或"救火队长"。',
-          baziDisplay: '己已 辛未 乙未 癸未',
-          radarData: [
-            { name: '自我', value: 95, fullMark: 100 },
-            { name: '财富', value: 82, fullMark: 100 },
-            { name: '事业', value: 85, fullMark: 100 },
-            { name: '情感', value: 45, fullMark: 100 },
-            { name: '人脉', value: 68, fullMark: 100 },
-            { name: '家庭', value: 65, fullMark: 100 },
-            { name: '健康', value: 60, fullMark: 100 },
-          ],
-          dimensionDetails: [
-            { title: '自我', level: 'S级', description: '八字身极强，比劫重重。自信心爆棚，主观意识过强，甚至有点自恋和独断专行。' },
-            { title: '财富', level: 'A级', description: '命带财库但被冲，紫微七杀掌财。具备爆发式致富的能量，但缺乏守财的能量。' },
-            { title: '事业', level: 'A级', description: '官禄宫武曲贪狼，配合八字杀印相生。越到中年（35岁后）能量越强，是典型的晚发型选手。' },
-            { title: '情感', level: 'C级', description: '夫妻宫状态极差，不仅空宫还带"劫"。感情是你最大的软肋，也是最耗损你能量的地方。' },
-            { title: '人脉', level: 'B级', description: '迁移宫天机天梁，善于交际但容易与权威产生摩擦。' },
-            { title: '家庭', level: 'B级', description: '父母宫有吉星，家庭关系尚可，但自身主观强，需注意沟通。' },
-            { title: '健康', level: 'B级', description: '疾厄宫需注意肝胆与神经系统，避免过度劳累。' },
-          ],
+      try {
+        // 调用真实报告生成服务
+        const report = await generateMainReport(archiveId)
+        
+        // 报告已在 report-service 中存储，这里只需标记任务完成
+        j.status = 'completed'
+        j.completedAt = new Date().toISOString()
+        j.stepLabel = undefined
+        
+        // 处理邀请奖励
+        const archive = store.archives.get(archiveId)
+        if (archive) {
+          processInvitesOnMainReportComplete(archive.userId)
         }
-        store.mainReports.set(archiveId, report)
-        processInvitesOnMainReportComplete(archive.userId)
+      } catch (error) {
+        console.error('[runReportJob] Generation failed:', error)
+        j.status = 'failed'
+        j.stepLabel = '报告生成失败'
+        j.error = error instanceof Error ? error.message : String(error)
       }
       return
     }
-    setTimeout(tick, 1500)
+    
+    // 非最后一步：继续模拟进度
+    setTimeout(() => tick(), 1500)
   }
-  setTimeout(tick, 1500)
+  
+  setTimeout(() => tick(), 1500)
 }
 
 export async function POST(request: Request) {

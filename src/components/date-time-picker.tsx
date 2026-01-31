@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 
 interface DateTimePickerProps {
   value: string
@@ -49,7 +49,9 @@ export function DateTimePicker({ value, onChange }: DateTimePickerProps) {
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-sm mx-auto">
           <div className="space-y-4 py-4">
-            <h3 className="text-center text-base font-medium">选择日期时间</h3>
+            <DialogTitle className="text-center text-base font-medium">
+              选择日期时间
+            </DialogTitle>
 
             {/* Date Pickers */}
             <div className="flex gap-2">

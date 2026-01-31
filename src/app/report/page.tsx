@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,20 +24,41 @@ import { useAppContext } from '@/lib/context'
 import { useState, useEffect } from 'react'
 import { SideMenu } from '@/components/side-menu'
 import { ShareDialog } from '@/components/share-dialog'
-import { getReportJobStatus, getMainReport } from '@/lib/api-client'
+import { getReportJobStatus, getMainReport, createReportJob } from '@/lib/api-client'
 import type { ApiMainReport } from '@/lib/types/api'
 
-// 分析步骤
+// 分析步骤：与后端流程对应（时辰→八字→排盘→先天→大限/流年→输出），前端用计时驱动，不依赖轮询步进
 const analysisStepsConfig = [
-  { id: 1, label: '编码解析', status: '进行中' },
-  { id: 2, label: '采用紫微斗数进行命理排盘', status: '进行中' },
-  { id: 3, label: '先天命盘解析', status: '进行中' },
-  { id: 4, label: '全域能量解析', status: '进行中' },
-  { id: 5, label: '大限走势解析', status: '进行中' },
-  { id: 6, label: '输出解码结果', status: '进行中' },
+  { id: 1, label: '分析时辰', subLabel: '解析出生时间与地区' },
+  { id: 2, label: '分析八字', subLabel: '节气四柱排盘' },
+  { id: 3, label: '分析排盘', subLabel: '紫微斗数命盘' },
+  { id: 4, label: '先天命盘解析', subLabel: '构建分析上下文' },
+  { id: 5, label: '大限与流年解析', subLabel: '生成命理解读' },
+  { id: 6, label: '输出解码结果', subLabel: '校验与呈现' },
 ]
 
+// 页面加载状态
+function ReportPageLoading() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center space-y-4">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-muted-foreground">加载中...</p>
+      </div>
+    </div>
+  )
+}
+
+// 包装组件，使用 Suspense 解决 useSearchParams 的 SSR 问题
 export default function ReportPage() {
+  return (
+    <Suspense fallback={<ReportPageLoading />}>
+      <ReportPageContent />
+    </Suspense>
+  )
+}
+
+function ReportPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const jobId = searchParams.get('jobId')
@@ -45,17 +67,40 @@ export default function ReportPage() {
   const [showMenu, setShowMenu] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [mainReport, setMainReport] = useState<ApiMainReport | null>(null)
+  const [generationError, setGenerationError] = useState<string | null>(null)
   const hasJobFromUrl = Boolean(jobId && archiveId)
-  const [isAnalyzing, setIsAnalyzing] = useState(hasJobFromUrl || !hasCompletedMainReport)
+  // 仅当 URL 带有 jobId+archiveId（真实生成任务）时显示分析中，避免无参数时出现假进度
+  const [isAnalyzing, setIsAnalyzing] = useState(hasJobFromUrl)
+  // currentStep：0=第一步进行中 … 5=第六步进行中，6=全部完成。由前端计时驱动，不依赖后端 currentStep
   const [currentStep, setCurrentStep] = useState(
-    hasCompletedMainReport ? analysisStepsConfig.length : 0,
+    hasJobFromUrl ? 0 : analysisStepsConfig.length,
   )
-  const analysisSteps = analysisStepsConfig.map((step) => ({
-    ...step,
-    status: currentStep >= step.id ? '完成' : currentStep === step.id - 1 ? '进行中' : '未开始',
-  }))
+  const showEmptyState = !hasJobFromUrl && !mainReport && !user.currentArchiveId
+  const loadingReportByArchive = !hasJobFromUrl && !mainReport && Boolean(user.currentArchiveId)
 
-  // 有 jobId+archiveId 时轮询任务状态，完成后拉取主报告并更新 currentArchiveId
+  // 前端计时驱动步骤：总时长约 70s 平摊至前 5 步，内容生成（50s+）不集中压在最后一步
+  useEffect(() => {
+    if (!hasJobFromUrl || !isAnalyzing) return
+    const stepDurations = [10000, 10000, 12000, 13000, 25000] // 前 5 步合计 ~70s（ms），第 6 步等接口完成即跳转
+    let stepIndex = 0
+    const timeouts: ReturnType<typeof setTimeout>[] = []
+    const scheduleNext = () => {
+      if (stepIndex >= stepDurations.length) return
+      const t = setTimeout(() => {
+        setCurrentStep((prev) => {
+          const next = prev + 1
+          return next > 5 ? 5 : next
+        })
+        stepIndex += 1
+        scheduleNext()
+      }, stepDurations[stepIndex])
+      timeouts.push(t)
+    }
+    scheduleNext()
+    return () => timeouts.forEach(clearTimeout)
+  }, [hasJobFromUrl, isAnalyzing])
+
+  // 仅轮询任务是否完成（不依赖后端步进），完成后拉取主报告
   useEffect(() => {
     if (!jobId || !archiveId) return
     let cancelled = false
@@ -63,10 +108,8 @@ export default function ReportPage() {
       try {
         const job = await getReportJobStatus(jobId)
         if (cancelled) return
-        if (job.status === 'running' && job.currentStep != null) {
-          setCurrentStep(job.currentStep)
-        }
         if (job.status === 'completed') {
+          setGenerationError(null)
           const report = await getMainReport(archiveId)
           if (cancelled) return
           if (report) setMainReport(report)
@@ -77,13 +120,14 @@ export default function ReportPage() {
           return
         }
         if (job.status === 'failed') {
+          setGenerationError(job.error || '报告生成失败，请重试')
           setIsAnalyzing(false)
           return
         }
       } catch {
-        // 继续轮询
+        // 网络异常时继续轮询
       }
-      if (!cancelled) setTimeout(poll, 1500)
+      if (!cancelled) setTimeout(poll, 2000)
     }
     poll()
     return () => {
@@ -99,23 +143,6 @@ export default function ReportPage() {
     }).catch(() => {})
   }, [jobId, user.currentArchiveId, mainReport])
 
-  // 无 jobId 时：模拟分析过程（仅首次生成报告时播放）
-  useEffect(() => {
-    if (hasJobFromUrl || hasCompletedMainReport || !isAnalyzing) {
-      if (!hasJobFromUrl) setCurrentStep(analysisStepsConfig.length)
-      return
-    }
-    const interval = setInterval(() => {
-      setCurrentStep((prev) => {
-        if (prev < analysisStepsConfig.length) return prev + 1
-        setIsAnalyzing(false)
-        setHasCompletedMainReport(true)
-        return prev
-      })
-    }, 1500)
-    return () => clearInterval(interval)
-  }, [hasJobFromUrl, hasCompletedMainReport, isAnalyzing, setHasCompletedMainReport])
-
   // 人生剧本数据（优先使用 API 主报告）
   const lifeScript = {
     title: mainReport?.lifeScriptTitle ?? '怒海争锋·破蛋成蝶',
@@ -127,6 +154,8 @@ export default function ReportPage() {
   const coreAbility =
     mainReport?.coreAbility ??
     '越是危机时刻，越是规则崩坏的地方，你的直觉和执行力越强。你是天生的"战时CEO"或"救火队长"。'
+
+  const coreAbilityTags = mainReport?.coreAbilityTags ?? ['#破壁者', '#拓荒领袖']
 
   const radarData = mainReport?.radarData ?? [
     { name: '自我', value: 95, fullMark: 100 },
@@ -177,7 +206,7 @@ export default function ReportPage() {
   ]
 
   // 性格特质构成数据 - 色块数量可变（4-6个）
-  const personalityTraits = [
+  const personalityTraits = mainReport?.personalityTraits ?? [
     { label: '领子工作', value: 85 },
     { label: '晚景休闲', value: 65 },
     { label: '寅卯空', value: 72 },
@@ -186,17 +215,17 @@ export default function ReportPage() {
   ]
 
   // 性格标签数据 - 标签数量可变（4-6个）
-  const personalityLabels = ['理性', '果断', '独立', '敏锐', '坚韧', '创新']
+  const personalityLabels = mainReport?.personalityLabels ?? ['理性', '果断', '独立', '敏锐', '坚韧', '创新']
 
-  // 流年运势图表数据
-  const yearlyFortuneData = [
-    { year: '2024', value: 40 },
-    { year: '2025', value: 25 },
-    { year: '2026', value: 15 },
+  // 流年运势图表数据（安全指数，非风险指数）
+  const yearlyFortuneData = mainReport?.yearlyFortuneChart ?? [
+    { year: '2024', value: 60 },
+    { year: '2025', value: 35 },
+    { year: '2026', value: 20 },
   ]
 
-  // 流年运势详细描述 - 2026年为重点突出
-  const yearlyDetails = [
+  // 流年运势详细描述 - 重点年份会有 isHighlight=true
+  const yearlyDetails = mainReport?.yearlyDetails ?? [
     {
       year: '2024',
       stem: '甲辰',
@@ -222,6 +251,48 @@ export default function ReportPage() {
     },
   ]
 
+  // 宫位解析（5 个子模块）
+  const palaceAnalysis = mainReport?.palaceAnalysis ?? {
+    surfacePersonality: {
+      title: '两火日元',
+      description: '日元为火，命中又见火，形成"双火交辉"之象。代表热情、活力、行动力极强，但也需注意火旺则燥，容易急躁冲动。建议修心养性，以水济火。年柱干支显示早年环境对性格形成有重要影响，月柱体现家庭氛围与社交模式，日柱代表核心自我。'
+    },
+    deepDesire: {
+      title: '命宫遇六破军',
+      description: '破坏性与创造性并存，与平庸绝缘的灵性觉醒。贵人相助、六亲缘薄，但成就非凡。破军星入命，主变动、开创，一生多经历重大转折，每次转变都是突破自我的契机。宜从事开创性工作，不宜守成。'
+    },
+    thinkingPattern: {
+      title: '官煞武曲负搭',
+      description: '破坏与创造性并存，代表事业心极强。武曲星主财帛、决断，七杀星主权威、魄力。两星相会，形成"将星"格局。事业上宜掌权、宜独立创业，但需注意贪多嚼不烂，聚焦核心目标方能成就大业。35岁后事业运明显上升。'
+    },
+    wealthLogic: {
+      title: '财帛欣陆七杀',
+      description: '财运方面呈现"机遇与风险并存"的格局。擅长把握商机，但需警惕投机心理。建议稳扎稳打，积累实力后再图大发展。七杀入财帛宫，主财来财去、大起大落。宜从事竞争性强的行业，如金融、投资、销售等。35岁后财运渐旺，40岁迎来财富高峰期。'
+    },
+    emotionalPattern: {
+      title: '夫妻宫宋宫·左右',
+      description: '帝级气场与大器格局，能吸引优秀伴侣。但两颗主星同宫也意味着"双王会合"，婚姻中需注意相互尊重，避免因个性太强而产生摩擦。左辅右弼同宫，主贵人多助，婚姻中能得到伴侣家族的支持与帮助。'
+    }
+  }
+
+  // 职业天命
+  const careerDestiny = mainReport?.careerDestiny ?? {
+    tracks: '金/水。你需要"金"来被你炼化（变现），需要"水"来降温（控制风险）。',
+    industries: '金融（尤其是风投、并购）、互联网技术架构、能源交易、特种设备制造。',
+    position: '开疆拓土的大将。不要做守成的行政，不要做需要耐心的客服。去做销售总监、项目发起人、或者独立创业者。'
+  }
+
+  // 人生四阶
+  const lifeStages = mainReport?.lifeStages ?? [
+    { stage: '少年期', ageRange: '5～24', description: '动荡不安，学业起伏，可能早早离家或与父母缘分浅（父母宫陀罗火星）。' },
+    { stage: '青年期', ageRange: '25～44', description: '试错期。在不同的赛道横冲直撞，虽然有高光时刻，但财来财去，很难沉淀大钱。' },
+    { stage: '中年期', ageRange: '45～64', description: '黄金爆发期。官禄宫武曲贪狼发力，此时你已学会控制情绪，经验转化为直觉，财富量级将指数级跃升。' },
+    { stage: '晚年期', ageRange: '65+', description: '归隐田园。福德宫天府禄存，晚年反而能享受到物质带来的安稳。' }
+  ]
+
+  // 社交名片（结语）
+  const socialCard = mainReport?.socialCard ?? '你这辈子是来战斗和掠夺的，不是来享受岁月静好的。你的成就建立在对他人的征服和对规则的重塑之上。\n\n你最大的敌人不是别人，是你那无法遏制的赌徒心态。在2026年这种"火上浇油"的年份，如果你学不会"认怂"，可能会把过去十年的积累一把输光。'
+
   return (
     <main className="min-h-screen bg-background text-foreground max-w-md mx-auto">
       {/* Header */}
@@ -245,7 +316,27 @@ export default function ReportPage() {
       </header>
 
       {/* Content */}
-      {isAnalyzing ? (
+      {showEmptyState ? (
+        /* 未生成主报告：引导去填写编码并生成 */
+        <div className="px-5 py-12 flex-1 flex flex-col items-center justify-center text-center space-y-6">
+          <p className="text-sm text-muted-foreground">您还未生成主报告</p>
+          <p className="text-xs text-muted-foreground max-w-xs">
+            填写出生信息并开启解码，即可获得基于紫微斗数与命盘的主报告
+          </p>
+          <Button
+            onClick={() => router.push('/input')}
+            className="rounded-full"
+          >
+            填写编码并生成
+          </Button>
+        </div>
+      ) : loadingReportByArchive ? (
+        /* 根据档案拉取报告中 */
+        <div className="px-5 py-12 flex-1 flex flex-col items-center justify-center text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">加载报告中...</p>
+        </div>
+      ) : isAnalyzing ? (
         /* Analyzing State */
         <div className="px-5 py-8 min-h-[calc(100vh-130px)] flex flex-col">
           {/* User Info Section - Top Position */}
@@ -259,7 +350,7 @@ export default function ReportPage() {
 
           <Separator className="bg-border mb-6" />
 
-          {/* Analysis Steps with Enhanced Design */}
+          {/* Analysis Steps：与时辰→八字→排盘→内容对应，进行中步骤显示转圈避免卡死感 */}
           <div className="space-y-4 flex-1">
             {analysisStepsConfig.map((step, index) => {
               const isCompleted = index < currentStep
@@ -267,18 +358,26 @@ export default function ReportPage() {
 
               return (
                 <div key={step.id} className="flex items-start gap-4">
-                  {/* Custom Step Indicator */}
                   <div className="flex flex-col items-center pt-1">
                     <div
-                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-500 ${
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-500 shrink-0 ${
                         isCompleted
-                          ? 'bg-primary text-primary-foreground scale-100'
+                          ? 'bg-primary text-primary-foreground'
                           : isInProgress
-                            ? 'bg-primary text-primary-foreground scale-110'
+                            ? 'bg-primary/10 border-2 border-primary'
                             : 'bg-border text-muted-foreground'
                       }`}
                     >
-                      {isCompleted ? '✓' : isInProgress ? '●' : '○'}
+                      {isCompleted ? (
+                        <span className="text-primary">✓</span>
+                      ) : isInProgress ? (
+                        <div
+                          className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin"
+                          aria-hidden
+                        />
+                      ) : (
+                        <span className="text-muted-foreground">○</span>
+                      )}
                     </div>
                     {index < analysisStepsConfig.length - 1 && (
                       <div
@@ -289,8 +388,7 @@ export default function ReportPage() {
                     )}
                   </div>
 
-                  {/* Step Content */}
-                  <div className="flex-1 pt-1">
+                  <div className="flex-1 pt-0.5 min-w-0">
                     <p
                       className={`text-sm font-medium tracking-wide transition-colors duration-500 ${
                         isCompleted || isInProgress ? 'text-foreground' : 'text-muted-foreground'
@@ -298,8 +396,8 @@ export default function ReportPage() {
                     >
                       {step.label}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {isCompleted ? '已完成' : isInProgress ? '进行中' : '待处理'}
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {isCompleted ? '已完成' : isInProgress ? '进行中…' : step.subLabel ?? '待处理'}
                     </p>
                   </div>
                 </div>
@@ -307,17 +405,47 @@ export default function ReportPage() {
             })}
           </div>
 
-          {/* Progress Percentage */}
+          {/* 进度：前几步按计时显示，最后一步长时间显示约 90% + 转圈 */}
           <div className="mt-8 pt-6 border-t border-border text-center space-y-2">
             <p className="text-2xl font-medium text-primary">
-              {Math.round((currentStep / analysisStepsConfig.length) * 100)}%
+              {isAnalyzing && currentStep < 5
+                ? Math.round(((currentStep + 1) / analysisStepsConfig.length) * 100)
+                : isAnalyzing && currentStep === 5
+                  ? 92
+                  : 100}
+              %
             </p>
-            <p className="text-xs text-muted-foreground">分析进度</p>
+            <p className="text-xs text-muted-foreground">
+              {isAnalyzing && currentStep === 5 ? '正在生成命理解读…' : '分析进度'}
+            </p>
           </div>
         </div>
       ) : (
         /* Report State */
         <div className="px-5 py-8 space-y-8 flex flex-col">
+          {generationError ? (
+            /* 生成失败：显示错误与重试，不展示默认 mock 数据 */
+            <section className="space-y-6 text-center py-12">
+              <p className="text-sm text-destructive font-medium">报告生成失败</p>
+              <p className="text-xs text-muted-foreground max-w-xs mx-auto whitespace-pre-wrap">{generationError}</p>
+              <Button
+                onClick={async () => {
+                  if (!archiveId) return
+                  setGenerationError(null)
+                  try {
+                    const { jobId: newJobId } = await createReportJob({ archiveId })
+                    router.replace(`/report?jobId=${newJobId}&archiveId=${archiveId}`)
+                  } catch {
+                    setGenerationError('发起重试失败，请稍后再试')
+                  }
+                }}
+                className="rounded-full"
+              >
+                重试
+              </Button>
+            </section>
+          ) : (
+            <>
           {/* User Info Section */}
           <section className="text-center space-y-3">
             <h1 className="text-2xl tracking-[0.2em] font-semibold">{user.archiveName || 'KC小可爱'}</h1>
@@ -330,10 +458,10 @@ export default function ReportPage() {
           <section className="space-y-4">
             <div className="text-center space-y-2">
               <p className="text-xs text-muted-foreground tracking-widest uppercase">人 生 剧 本</p>
-              <h2 className="text-xl tracking-wider font-medium">怒海争锋·破蛋成蝶</h2>
+              <h2 className="text-xl tracking-wider font-medium">{lifeScript.title}</h2>
             </div>
             <p className="text-sm text-foreground/70 leading-[1.8] text-justify">
-              早年性格叛逆，多才多艺但学而不精（文曲忌）。中年（32-41岁）经历重大的人生转折与压力洗礼，在动荡中确立地位。晚年掌握实权，财富丰厚。
+              {lifeScript.description}
             </p>
           </section>
 
@@ -343,10 +471,10 @@ export default function ReportPage() {
           <section className="space-y-4">
             <h3 className="text-center text-xs tracking-widest text-muted-foreground uppercase">核 心 能 力</h3>
             <p className="text-sm text-foreground/70 leading-[1.8] text-justify">
-              越是危机时刻，越是规则崩坏的地方，你的直觉和执行力越强。你是天生的"战时CEO"或"救火队长"。
+              {coreAbility}
             </p>
             <p className="text-sm text-foreground/70 leading-[1.8] text-justify">
-              #破壁者 #拓荒领袖
+              {coreAbilityTags.join(' ')}
             </p>
           </section>
 
@@ -404,11 +532,9 @@ export default function ReportPage() {
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground tracking-wider">表层性格</p>
               <div className="space-y-2 pl-3 border-l border-border">
-                <h4 className="text-sm font-medium tracking-wide">两火日元</h4>
+                <h4 className="text-sm font-medium tracking-wide">{palaceAnalysis.surfacePersonality.title}</h4>
                 <p className="text-sm text-foreground/70 leading-[1.8]">
-                  日元为火，命中又见火，形成"双火交辉"之象。代表热情、活力、行动力极强，
-                  但也需注意火旺则燥，容易急躁冲动。建议修心养性，以水济火。年柱干支显示早年环境对性格形成有重要影响，
-                  月柱体现家庭氛围与社交模式，日柱代表核心自我。
+                  {palaceAnalysis.surfacePersonality.description}
                 </p>
               </div>
             </div>
@@ -417,11 +543,9 @@ export default function ReportPage() {
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground tracking-wider">深层欲望</p>
               <div className="space-y-2 pl-3 border-l border-border">
-                <h4 className="text-sm font-medium tracking-wide">命宫遇六破军</h4>
+                <h4 className="text-sm font-medium tracking-wide">{palaceAnalysis.deepDesire.title}</h4>
                 <p className="text-sm text-foreground/70 leading-[1.8]">
-                  破坏性与创造性并存，与平庸绝缘的灵性觉醒（编码：参考破绝灵典Z）描述略。
-                  贵人相助、六亲缘薄，但成就非凡。破军星入命，主变动、开创，一生多经历重大转折，
-                  每次转变都是突破自我的契机。宜从事开创性工作，不宜守成。
+                  {palaceAnalysis.deepDesire.description}
                 </p>
               </div>
             </div>
@@ -430,11 +554,9 @@ export default function ReportPage() {
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground tracking-wider">思维模式</p>
               <div className="space-y-2 pl-3 border-l border-border">
-                <h4 className="text-sm font-medium tracking-wide">官煞武曲负搭</h4>
+                <h4 className="text-sm font-medium tracking-wide">{palaceAnalysis.thinkingPattern.title}</h4>
                 <p className="text-sm text-foreground/70 leading-[1.8]">
-                  破坏与创造性并存（编码）描述略，代表事业心极强。武曲星主财帛、决断，
-                  七杀星主权威、魄力。两星相会，形成"将星"格局。事业上宜掌权、宜独立创业，
-                  但需注意贪多嚼不烂，聚焦核心目标方能成就大业。35岁后事业运明显上升。
+                  {palaceAnalysis.thinkingPattern.description}
                 </p>
               </div>
             </div>
@@ -443,11 +565,9 @@ export default function ReportPage() {
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground tracking-wider">财富逻辑</p>
               <div className="space-y-2 pl-3 border-l border-border">
-                <h4 className="text-sm font-medium tracking-wide">财帛欣陆七杀</h4>
+                <h4 className="text-sm font-medium tracking-wide">{palaceAnalysis.wealthLogic.title}</h4>
                 <p className="text-sm text-foreground/70 leading-[1.8]">
-                  财运方面呈现"机遇与风险并存"的格局。擅长把握商机，但需警惕投机心理。
-                  建议稳扎稳打，积累实力后再图大发展。七杀入财帛宫，主财来财去、大起大落。
-                  宜从事竞争性强的行业，如金融、投资、销售等。35岁后财运渐旺，40岁迎来财富高峰期。
+                  {palaceAnalysis.wealthLogic.description}
                 </p>
               </div>
             </div>
@@ -456,11 +576,9 @@ export default function ReportPage() {
             <div className="space-y-2">
               <p className="text-xs text-muted-foreground tracking-wider">情感模式</p>
               <div className="space-y-2 pl-3 border-l border-border">
-                <h4 className="text-sm font-medium tracking-wide">夫妻宫宋宫·左右</h4>
+                <h4 className="text-sm font-medium tracking-wide">{palaceAnalysis.emotionalPattern.title}</h4>
                 <p className="text-sm text-foreground/70 leading-[1.8]">
-                  帝级气场与大器格局，能吸引优秀伴侣。但两颗主星同宫也意味着"双王会合"，
-                  婚姻中需注意相互尊重，避免因个性太强而产生摩擦。伴侣"崩入一"，贵气。
-                  左辅右弼同宫，主贵人多助，婚姻中能得到伴侣家族的支持与帮助。
+                  {palaceAnalysis.emotionalPattern.description}
                 </p>
               </div>
             </div>
@@ -523,7 +641,7 @@ export default function ReportPage() {
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground tracking-wider">五行赛道</p>
                 <p className="text-sm text-foreground/70 leading-[1.8] pl-3 border-l border-border">
-                  <span className="font-medium text-foreground">金/水</span>。你需要"金"来被你炼化（变现），需要"水"来降温（控制风险）。
+                  {careerDestiny.tracks}
                 </p>
               </div>
 
@@ -531,7 +649,7 @@ export default function ReportPage() {
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground tracking-wider">具体行业</p>
                 <p className="text-sm text-foreground/70 leading-[1.8] pl-3 border-l border-border">
-                  金融（尤其是风投、并购）、互联网技术架构、能源交易、特种设备制造。
+                  {careerDestiny.industries}
                 </p>
               </div>
 
@@ -539,7 +657,7 @@ export default function ReportPage() {
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground tracking-wider">职能定位</p>
                 <p className="text-sm text-foreground/70 leading-[1.8] pl-3 border-l border-border">
-                  <span className="font-medium text-foreground">开疆拓土的大将</span>。不要做守成的行政，不要做需要耐心的客服。去做销售总监、项目发起人、或者独立创业者。
+                  {careerDestiny.position}
                 </p>
               </div>
             </div>
@@ -551,49 +669,17 @@ export default function ReportPage() {
           <section className="space-y-4">
             <h3 className="text-center text-xs tracking-widest text-muted-foreground uppercase">人 生 四 阶</h3>
             <div className="space-y-5">
-              {/* 少年期 */}
-              <div className="space-y-2">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm font-medium">少年期</span>
-                  <span className="text-xs text-muted-foreground">5～24</span>
+              {lifeStages.map((item) => (
+                <div key={item.stage} className="space-y-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm font-medium">{item.stage}</span>
+                    <span className="text-xs text-muted-foreground">{item.ageRange}</span>
+                  </div>
+                  <p className="text-sm text-foreground/70 leading-[1.8] pl-3 border-l border-border">
+                    {item.description}
+                  </p>
                 </div>
-                <p className="text-sm text-foreground/70 leading-[1.8] pl-3 border-l border-border">
-                  动荡不安，学业起伏，可能早早离家或与父母缘分浅（父母宫陀罗火星）。
-                </p>
-              </div>
-
-              {/* 青年期 */}
-              <div className="space-y-2">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm font-medium">青年期</span>
-                  <span className="text-xs text-muted-foreground">25～44</span>
-                </div>
-                <p className="text-sm text-foreground/70 leading-[1.8] pl-3 border-l border-border">
-                  试错期。在不同的赛道横冲直撞，虽然有高光时刻，但财来财去，很难沉淀大钱。
-                </p>
-              </div>
-
-              {/* 中年期 */}
-              <div className="space-y-2">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm font-medium">中年期</span>
-                  <span className="text-xs text-muted-foreground">45～64</span>
-                </div>
-                <p className="text-sm text-foreground/70 leading-[1.8] pl-3 border-l border-border">
-                  黄金爆发期。官禄宫武曲贪狼发力，此时你已学会控制情绪，经验转化为直觉，财富量级将指数级跃升。
-                </p>
-              </div>
-
-              {/* 晚年期 */}
-              <div className="space-y-2">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm font-medium">晚年期</span>
-                  <span className="text-xs text-muted-foreground">65+</span>
-                </div>
-                <p className="text-sm text-foreground/70 leading-[1.8] pl-3 border-l border-border">
-                  归隐田园。福德宫天府禄存，晚年反而能享受到物质带来的安稳。
-                </p>
-              </div>
+              ))}
             </div>
           </section>
 
@@ -631,7 +717,7 @@ export default function ReportPage() {
                     />
                   </AreaChart>
                 </ResponsiveContainer>
-                <p className="text-xs text-center text-muted-foreground mt-1">← 风险指数走势</p>
+                <p className="text-xs text-center text-muted-foreground mt-1">← 安全指数走势</p>
               </CardContent>
             </Card>
 
@@ -690,12 +776,11 @@ export default function ReportPage() {
             <h3 className="text-center text-xs tracking-widest text-muted-foreground uppercase">社 交 名 片</h3>
             <Card className="border-border bg-[#f5f4f2]">
               <CardContent className="p-5 space-y-3">
-                <p className="text-sm text-foreground/70 leading-[1.8]">
-                  你这辈子是来战斗和掠夺的，不是来享受岁月静好的。你的成就建立在对他人的征服和对规则的重塑之上。
-                </p>
-                <p className="text-sm text-foreground/70 leading-[1.8]">
-                  你最大的敌人不是别人，是你那无法遏制的赌徒心态。在2026年这种"火上浇油"的年份，如果你学不会"认怂"，可能会把过去十年的积累一把输光。
-                </p>
+                {socialCard.split('\n\n').map((paragraph, index) => (
+                  <p key={index} className="text-sm text-foreground/70 leading-[1.8]">
+                    {paragraph}
+                  </p>
+                ))}
               </CardContent>
             </Card>
           </section>
@@ -720,6 +805,8 @@ export default function ReportPage() {
               </Button>
             </div>
           </section>
+            </>
+          )}
         </div>
       )}
 

@@ -1,0 +1,61 @@
+{
+  "lifeScriptTitle": "紫微帝王坐命，财路广但情路坎",
+  "lifeScriptDescription": "你天生有领导气质，财运不错但容易大手大脚，感情上波折多需稳着来。中年事业起飞，晚年安逸。",
+  "coreAbility": "领导力强，财运敏感，学习快但表达稍弱",
+  "coreAbilityTags": ["领导力", "财运", "变革精神"],
+  "baziDisplay": "庚辰 甲申 丙午 庚寅",
+  "radarData": [
+    { "name": "自我", "value": 76, "fullMark": 100 },
+    { "name": "财富", "value": 71, "fullMark": 100 },
+    { "name": "事业", "value": 74, "fullMark": 100 },
+    { "name": "情感", "value": 62, "fullMark": 100 },
+    { "name": "人脉", "value": 63, "fullMark": 100 },
+    { "name": "家庭", "value": 68, "fullMark": 100 },
+    { "name": "健康", "value": 67, "fullMark": 100 }
+  ],
+  "dimensionDetails": [
+    { "title": "自我", "level": "A级", "description": "你自信果断，有领导范儿，但有时太固执，不听劝。" },
+    { "title": "财富", "level": "B级", "description": "你盯着钱，钱也盯着你，能赚但更会花，留不住手。" },
+    { "title": "事业", "level": "B级", "description": "你适合当老板或高管，中年后机会多，但职场有人盯着你犯错。" },
+    { "title": "情感", "level": "B级", "description": "你感情上敢爱敢恨，但容易吵架或遇竞争，得稳着点来。" },
+    { "title": "人脉", "level": "B级", "description": "你社交中思维活络，但容易孤独，朋友多带利益关系。" },
+    { "title": "家庭", "level": "B级", "description": "你家境不错或祖辈有资源，但父母关系有点拖后腿。" },
+    { "title": "健康", "level": "B级", "description": "你整体还行，但容易懒散或口舌惹病，注意心血管问题。" }
+  ],
+  "personalityTraits": "你是个自信爆棚的狮子，领导欲强，对钱敏感但花钱如流水；感情上冲动得像火药桶，社交中聪明却孤独。",
+  "personalityLabels": ["自信", "果断", "冲动", "孤高"],
+  "palaceAnalysis": "命宫紫微开挂，你是天生的老大；身宫事业宫廉贞天府，中年后官运亨通；夫妻宫七杀带火星，感情一路火花带闪电。",
+  "careerDestiny": "你适合走管理、金融或公职路，中年是黄金期，但小心职场小人，稳扎稳打才能上位。",
+  "lifeStages": [
+    { "stage": "少年期", "ageRange": "0～24", "description": "早年家境还行，学习不错但表达弱，自我意识强，有点叛逆。" },
+    { "stage": "青年期", "ageRange": "25～44", "description": "这阶段财运事业起步，但感情波折多，社交中需防利益纠纷。" },
+    { "stage": "中年期", "ageRange": "45～64", "description": "事业巅峰期，领导力爆发，财运提升但健康下滑，家庭关系缓和。" },
+    { "stage": "晚年期", "ageRange": "65～", "description": "晚年安逸，财运平稳，情感稳定，但健康需多注意保养。" }
+  ],
+  "yearlyFortuneChart": {
+    "title": "2024-2026流年运势",
+    "description": "未来三年你财运渐起，但感情和健康有坎，2026年关键转折点。"
+  },
+  "yearlyDetails": [
+    {
+      "year": "2024",
+      "stem": "甲辰",
+      "level": "B级",
+      "description": "这一年学习或工作有新机会，但花钱多，社交中易遇小人。",
+      "isHighlight": false
+    },
+    {
+      "year": "2025",
+      "stem": "乙巳",
+      "level": "A级",
+      "description": "财运提升，有贵人帮，事业进展快，但感情冲突加剧。",
+      "isHighlight": false
+    },
+    {
+      "year": "2026",
+      "stem": "丙午",
+      "level": "A级",
+      "description": "关键年，自我能量爆发，事业突破，但健康亮红灯，感情需冷静处理。",
+      "isHighlight": true,
+      "details": "2026年你比肩旺，竞争多，财运事业双丰收，但健康上心血管或火气问题凸显，感情易爆发争吵。",
+      "strategy": "稳扎稳打事业，避免冲动投资；多运动降压，感情上多沟通少较劲

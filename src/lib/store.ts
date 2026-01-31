@@ -34,6 +34,7 @@ declare global {
     archives: Map<string, ApiArchive>
     reportJobs: Map<string, ApiReportJob>
     mainReports: Map<string, ApiMainReport>
+    archiveToReport: Map<string, string>  // archiveId -> reportId
     codes: Map<string, { code: string; expiresAt: number }>
     redemptionCodes: Map<string, RedemptionCodeRecord>
     invites: Map<string, InviteRecord>
@@ -50,6 +51,7 @@ function getStore() {
       archives: new Map(),
       reportJobs: new Map(),
       mainReports: new Map(),
+      archiveToReport: new Map(),
       codes: new Map(),
       redemptionCodes: new Map(),
       invites: new Map(),
@@ -62,6 +64,9 @@ function getStore() {
   const st = globalThis.__lifecode_store
   if (!st.userTransactions) {
     ;(st as Record<string, unknown>).userTransactions = new Map()
+  }
+  if (!st.archiveToReport) {
+    ;(st as Record<string, unknown>).archiveToReport = new Map()
   }
   return st
 }
@@ -81,6 +86,9 @@ export const store = {
   },
   get mainReports() {
     return getStore().mainReports
+  },
+  get archiveToReport() {
+    return getStore().archiveToReport
   },
   get codes() {
     return getStore().codes

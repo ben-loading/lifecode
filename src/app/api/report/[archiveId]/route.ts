@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { store } from '@/lib/store'
 import { getUserIdFromRequest } from '@/lib/auth-server'
 import { unauthorized, serverError } from '@/lib/api-utils'
+import { getMainReportByArchiveId } from '@/lib/services/report-service'
 
 export async function GET(
   request: Request,
@@ -16,7 +17,7 @@ export async function GET(
     if (!archive || archive.userId !== userId) {
       return NextResponse.json({ error: '档案不存在' }, { status: 404 })
     }
-    const report = store.mainReports.get(archiveId)
+    const report = getMainReportByArchiveId(archiveId)
     return NextResponse.json(report ?? null)
   } catch (e) {
     console.error('[report/archiveId]', e)

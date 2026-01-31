@@ -28,6 +28,11 @@ export interface UserData {
   gender?: 'male' | 'female'
   birthDate?: string
   birthLocation?: string
+  birthCalendar?: 'solar' | 'lunar'
+  birthTimeMode?: 'datetime' | 'shichen'
+  birthTimeBranch?: number
+  lunarDate?: string
+  isLeapMonth?: boolean
   archiveNote?: string
   archiveName?: string
   currentArchiveId?: string

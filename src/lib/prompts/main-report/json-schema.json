@@ -1,0 +1,218 @@
+{
+  "type": "object",
+  "required": [
+    "lifeScriptTitle", "lifeScriptDescription", "coreAbility", "coreAbilityTags",
+    "baziDisplay", "radarData", "dimensionDetails", "personalityTraits",
+    "personalityLabels", "palaceAnalysis", "careerDestiny", "lifeStages",
+    "yearlyFortuneChart", "yearlyDetails", "socialCard"
+  ],
+  "properties": {
+    "lifeScriptTitle": {
+      "type": "string",
+      "description": "人生点题，严格前四字·后四字，不得含标点。前半四字为核心意象（如怒海争锋、紫微独尊），后半四字为格局/走向（如破蛋成蝶、烈火焚金）",
+      "pattern": "^.{4}·.{4}$"
+    },
+    "lifeScriptDescription": {
+      "type": "string",
+      "description": "剧本判词，大白话总结，建议写满"
+    },
+    "coreAbility": {
+      "type": "string",
+      "description": "核心能力（绝杀武器），用第二人称'你'，建议写满"
+    },
+    "coreAbilityTags": {
+      "type": "array",
+      "description": "社会角色标签，至少1个，格式：#标签名",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "baziDisplay": {
+      "type": "string",
+      "description": "直接使用输入的 chineseDate 字段值"
+    },
+    "radarData": {
+      "type": "array",
+      "description": "七维能量雷达图，固定7个对象，每个形如 { \"name\": \"自我\", \"value\": 85, \"fullMark\": 100 }。禁止纯数字数组。name 顺序固定：自我、财富、事业、情感、人脉、家庭、健康",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "required": ["name", "value", "fullMark"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": ["自我", "财富", "事业", "情感", "人脉", "家庭", "健康"]
+          },
+          "value": {
+            "type": "number",
+            "description": "根据双核算法评估，建议 0-100"
+          },
+          "fullMark": { "type": "number", "const": 100 }
+        }
+      }
+    },
+    "dimensionDetails": {
+      "type": "array",
+      "description": "七维详细解析，与radarData顺序一致",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "required": ["title", "level", "description"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "enum": ["自我", "财富", "事业", "情感", "人脉", "家庭", "健康"]
+          },
+          "level": {
+            "type": "string",
+            "enum": ["S级", "A级", "B级", "C级", "D级"]
+          },
+          "description": {
+            "type": "string",
+            "description": "大白话，严禁术语堆砌"
+          }
+        }
+      }
+    },
+    "personalityTraits": {
+      "type": "array",
+      "description": "性格成分，用于柱状图/饼图，至少1个。每项 label 为短标签 2–6 字，禁止长句",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["label", "value"],
+        "properties": {
+          "label": { "type": "string", "description": "短标签 2–6 字，如：王者野心、躺平惰性、投机心理，禁止长句" },
+          "value": { "type": "number" }
+        }
+      }
+    },
+    "personalityLabels": {
+      "type": "array",
+      "description": "性格标签关键词，至少1个",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "palaceAnalysis": {
+      "type": "object",
+      "description": "宫位解析五大模块，必须是对象，禁止写成一段字符串。每个模块的 title 填宫位/星象短标签（如「紫微命宫+破军福德」），禁止填「表层性格」「深层欲望」等通用词；description 填该模块分析段落。",
+      "required": [
+        "surfacePersonality", "deepDesire", "thinkingPattern",
+        "wealthLogic", "emotionalPattern"
+      ],
+      "properties": {
+        "surfacePersonality": {
+          "type": "object",
+          "description": "表层性格（日元+命宫）。title=宫位星象短标签，description=分析段落",
+          "required": ["title", "description"],
+          "properties": {
+            "title": { "type": "string", "description": "例：丙火日元 + 紫微命宫" },
+            "description": { "type": "string" }
+          }
+        },
+        "deepDesire": {
+          "type": "object",
+          "description": "深层欲望（命宫+福德宫）。title=宫位星象短标签，description=分析段落",
+          "required": ["title", "description"],
+          "properties": {
+            "title": { "type": "string", "description": "例：紫微命宫 + 破军福德" },
+            "description": { "type": "string" }
+          }
+        },
+        "thinkingPattern": {
+          "type": "object",
+          "description": "思维模式（官禄宫+父母宫）。title=宫位星象短标签，description=分析段落",
+          "required": ["title", "description"],
+          "properties": {
+            "title": { "type": "string", "description": "例：廉贞天府官禄 + 天钺陀罗父母" },
+            "description": { "type": "string" }
+          }
+        },
+        "wealthLogic": {
+          "type": "object",
+          "description": "财富逻辑（财帛宫+田宅宫）。title=宫位星象短标签，description=分析段落",
+          "required": ["title", "description"],
+          "properties": {
+            "title": { "type": "string", "description": "例：武曲天相财帛 + 空宫田宅" },
+            "description": { "type": "string" }
+          }
+        },
+        "emotionalPattern": {
+          "type": "object",
+          "description": "情感模式（夫妻宫+子女宫）。title=宫位星象短标签，description=分析段落",
+          "required": ["title", "description"],
+          "properties": {
+            "title": { "type": "string", "description": "例：七杀夫妻 + 太阳天梁子女" },
+            "description": { "type": "string" }
+          }
+        }
+      }
+    },
+    "careerDestiny": {
+      "type": "object",
+      "description": "职业天命，必须是对象且 tracks/industries/position 三者内容不可重复。禁止写成一段字符串。",
+      "required": ["tracks", "industries", "position"],
+      "properties": {
+        "tracks": { "type": "string", "description": "五行/赛道一句话，例：火土金赛道（喜木火，但金融财星强）" },
+        "industries": { "type": "string", "description": "具体行业逗号分隔，例：金融投资、企业管理、创业老板、政府机关" },
+        "position": { "type": "string", "description": "职能定位一段话，例：老板或核心决策层。你不适合做执行者，要么做老大，要么做军师。" }
+      }
+    },
+    "lifeStages": {
+      "type": "array",
+      "description": "人生四阶，固定4个。stage 只能填：少年期、青年期、中年期、晚年期（不得加后缀如「青年期（当前-32岁）」），年龄区间写在 ageRange",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "required": ["stage", "ageRange", "description"],
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": ["少年期", "青年期", "中年期", "晚年期"]
+          },
+          "ageRange": { "type": "string", "description": "如 5～24、25～44" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "yearlyFortuneChart": {
+      "type": "array",
+      "description": "流年运势图表，固定3年。year 必须为字符串如 \"2024\"，禁止用数字。value 为该年综合运势 0–100，与 yearlyDetails 对应年吉凶一致，三年需有区分度（禁止三值相同）",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["year", "value"],
+        "properties": {
+          "year": { "type": "string", "description": "如 \"2024\"" },
+          "value": { "type": "number", "description": "该年综合运势 0–100，与 yearlyDetails 对应年吉凶一致，三年需有区分度" }
+        }
+      }
+    },
+    "yearlyDetails": {
+      "type": "array",
+      "description": "流年详细分析，固定3年。year 必须为字符串如 \"2024\"；isHighlight 为 true 时需填 details 和 strategy",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["year", "stem", "level", "description", "isHighlight"],
+        "properties": {
+          "year": { "type": "string", "description": "如 \"2024\"" },
+          "stem": { "type": "string" },
+          "level": { "type": "string" },
+          "description": { "type": "string" },
+          "details": { "type": "string" },
+          "strategy": { "type": "string" },
+          "isHighlight": { "type": "boolean" }
+        }
+      }
+    },
+    "socialCard": {
+      "type": "string",
+      "description": "最终判词，多段用\\n\\n分隔，建议写满"
+    }
+  }
+}

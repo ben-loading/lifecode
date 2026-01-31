@@ -25,8 +25,17 @@ export function ArchivePage() {
       setShowLoginModal(true)
       return
     }
-    if (!user.gender || !user.birthDate || !user.birthLocation) {
-      setError('请先完善性别、出生日期与出生地')
+    const needsLocation = user.birthTimeMode !== 'shichen'
+    if (!user.gender || !user.birthDate) {
+      setError('请先完善性别与出生日期')
+      return
+    }
+    if (needsLocation && !user.birthLocation?.trim()) {
+      setError('请先选择出生地区（用于真太阳时校准）')
+      return
+    }
+    if (user.birthCalendar === 'lunar' && !user.lunarDate) {
+      setError('请先完善农历日期')
       return
     }
     if (balance < MAIN_REPORT_COST) {
@@ -40,7 +49,12 @@ export function ArchivePage() {
         name: archiveNote.trim().slice(0, 12),
         gender: user.gender,
         birthDate: user.birthDate,
-        birthLocation: user.birthLocation,
+        birthLocation: user.birthLocation ?? '',
+        birthCalendar: user.birthCalendar,
+        birthTimeMode: user.birthTimeMode,
+        birthTimeBranch: user.birthTimeBranch,
+        lunarDate: user.lunarDate,
+        isLeapMonth: user.isLeapMonth,
       })
       const { jobId } = await createReportJob({ archiveId: archive.id })
       setBalance(balance - MAIN_REPORT_COST)

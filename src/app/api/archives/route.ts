@@ -23,9 +23,16 @@ export async function POST(request: Request) {
 
     const body = await parseJsonBody<CreateArchiveBody>(request)
     if (body == null) return badRequest('请求体无效')
-    const { name, gender, birthDate, birthLocation } = body
-    if (!name?.trim() || !gender || !birthDate || !birthLocation) {
-      return badRequest('缺少 name / gender / birthDate / birthLocation')
+    const { name, gender, birthDate, birthLocation, birthCalendar, birthTimeMode, birthTimeBranch, lunarDate, isLeapMonth } = body
+    if (!name?.trim() || !gender || !birthDate) {
+      return badRequest('缺少 name / gender / birthDate')
+    }
+    const useShichen = birthTimeMode === 'shichen'
+    if (!useShichen && !(birthLocation ?? '').trim()) {
+      return badRequest('选择具体时间时需提供出生地区 birthLocation')
+    }
+    if (birthCalendar === 'lunar' && !lunarDate?.trim()) {
+      return badRequest('农历需提供 lunarDate')
     }
     const id = `archive_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
     const archive: ApiArchive = {
@@ -34,8 +41,13 @@ export async function POST(request: Request) {
       name: name.trim().slice(0, 12),
       gender,
       birthDate,
-      birthLocation,
+      birthLocation: (birthLocation ?? '').trim(),
       createdAt: new Date().toISOString(),
+      ...(birthCalendar && { birthCalendar }),
+      ...(birthTimeMode && { birthTimeMode }),
+      ...(birthTimeBranch != null && { birthTimeBranch }),
+      ...(lunarDate && { lunarDate }),
+      ...(isLeapMonth != null && { isLeapMonth }),
     }
     store.archives.set(id, archive)
     return NextResponse.json(archive)

@@ -1,0 +1,155 @@
+// Prisma Schema for lifecode
+// 数据库：PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== 用户表 ====================
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  balance   Int      @default(0)
+  inviteRef String?  @unique  // 邀请码
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // 关联
+  archives     Archive[]
+  transactions Transaction[]
+  inviterLinks Invite[]      @relation("Inviter")
+  inviteeLinks Invite[]      @relation("Invitee")
+  
+  @@index([email])
+  @@index([inviteRef])
+}
+
+// ==================== 档案表 ====================
+model Archive {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  gender        String   // 'male' | 'female'
+  birthDate     DateTime
+  birthLocation String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // 关联
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mainReport  MainReport?
+  deepReports DeepReport[]
+  
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ==================== 主报告表 ====================
+model MainReport {
+  id        String   @id @default(cuid())
+  archiveId String   @unique
+  
+  // 完整报告内容（JSONB 存储）
+  content   Json     @db.Json
+  
+  // 冗余字段（便于查询和展示）
+  lifeScriptTitle String?
+  baziDisplay     String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // 关联
+  archive   Archive  @relation(fields: [archiveId], references: [id], onDelete: Cascade)
+  
+  @@index([archiveId])
+  @@index([createdAt])
+}
+
+// ==================== 深度报告表 ====================
+model DeepReport {
+  id         String   @id @default(cuid())
+  archiveId  String
+  reportType String   // 'future-fortune' | 'wealth-road' | 'career-path' | 'love-marriage'
+  
+  // 完整报告内容（JSONB 存储）
+  content    Json     @db.Json
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // 关联
+  archive    Archive  @relation(fields: [archiveId], references: [id], onDelete: Cascade)
+  
+  @@unique([archiveId, reportType])
+  @@index([archiveId])
+}
+
+// ==================== 交易记录表 ====================
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // 'topup' | 'consume' | 'reward'
+  amount      Int
+  description String
+  createdAt   DateTime @default(now())
+  
+  // 关联
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@index([type])
+}
+
+// ==================== 邀请记录表 ====================
+model Invite {
+  id        String   @id @default(cuid())
+  inviterId String
+  inviteeId String
+  isValid   Boolean  @default(false)  // 被邀请人完成首次报告后为 true
+  createdAt DateTime @default(now())
+  
+  // 关联
+  inviter   User     @relation("Inviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee   User     @relation("Invitee", fields: [inviteeId], references: [id], onDelete: Cascade)
+  
+  @@unique([inviterId, inviteeId])
+  @@index([inviterId])
+  @@index([inviteeId])
+}
+
+// ==================== 兑换码表 ====================
+model RedemptionCode {
+  code      String   @id
+  amount    Int
+  usedBy    String?
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  
+  @@index([usedBy])
+}
+
+// ==================== 报告生成任务表（可选）====================
+model ReportJob {
+  id           String   @id @default(cuid())
+  archiveId    String
+  status       String   // 'pending' | 'running' | 'completed' | 'failed'
+  currentStep  Int?
+  totalSteps   Int?
+  stepLabel    String?
+  error        String?
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([archiveId])
+  @@index([status])
+  @@index([createdAt])
+}

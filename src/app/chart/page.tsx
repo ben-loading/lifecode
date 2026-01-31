@@ -6,10 +6,11 @@ import { useAppContext } from '@/lib/context'
 import { useMemo } from 'react'
 import { astro } from 'iztro'
 import { Card, CardContent } from '@/components/ui/card'
+import { getLongitudeByRegion, getSolarTimeOffsetMinutes } from '@/lib/birth-constants'
 
-/** 阳历小时(0-23) 转 iztro 时辰序号 0~12 */
+/** 阳历小时(0-23) 转 iztro 时辰序号 0~12（0=早子 00-01, 12=晚子 23-00） */
 function hourToTimeIndex(hour: number): number {
-  if (hour === 23) return 0 // 晚子时 归为 子时0
+  if (hour === 23) return 12
   return Math.floor((hour + 1) / 2) % 12
 }
 
@@ -68,19 +69,50 @@ export default function ZiweiChartPage() {
   const astrolabe = useMemo((): AstrolabeData | null => {
     if (!user.birthDate || !user.gender) return null
     try {
-      const date = new Date(user.birthDate)
-      const y = date.getFullYear()
-      const m = date.getMonth() + 1
-      const d = date.getDate()
-      const hour = date.getHours()
-      const solarStr = `${y}-${m}-${d}`
-      const timeIndex = hourToTimeIndex(hour)
+      astro.config({ yearDivide: 'exact', horoscopeDivide: 'exact' })
       const genderStr = user.gender === 'male' ? '男' : '女'
+      const useLunar = user.birthCalendar === 'lunar'
+      const useShichen = user.birthTimeMode === 'shichen'
+      let timeIndex: number
+      let solarStr: string
+
+      if (useShichen && user.birthTimeBranch != null) {
+        timeIndex = Math.max(0, Math.min(12, user.birthTimeBranch))
+        const [y, m, d] = user.birthDate.slice(0, 10).split('-').map(Number)
+        solarStr = `${y}-${m}-${d}`
+      } else {
+        const date = new Date(user.birthDate)
+        let hour = date.getHours()
+        const minute = date.getMinutes()
+        const y = date.getFullYear()
+        const m = date.getMonth() + 1
+        const d = date.getDate()
+        solarStr = `${y}-${m}-${d}`
+        if (user.birthLocation?.trim()) {
+          const longitude = getLongitudeByRegion(user.birthLocation)
+          const offsetMin = getSolarTimeOffsetMinutes(longitude, solarStr)
+          const totalMinutes = hour * 60 + minute + offsetMin
+          const adjusted = ((totalMinutes % 1440) + 1440) % 1440
+          hour = Math.floor(adjusted / 60) % 24
+        }
+        timeIndex = hourToTimeIndex(hour)
+      }
+
+      if (useLunar && user.lunarDate?.trim()) {
+        return astro.byLunar(
+          user.lunarDate.trim(),
+          timeIndex,
+          genderStr,
+          user.isLeapMonth ?? false,
+          true,
+          'zh-CN'
+        ) as unknown as AstrolabeData
+      }
       return astro.bySolar(solarStr, timeIndex, genderStr, true, 'zh-CN') as unknown as AstrolabeData
     } catch {
       return null
     }
-  }, [user.birthDate, user.gender])
+  }, [user.birthDate, user.gender, user.birthCalendar, user.birthTimeMode, user.birthTimeBranch, user.lunarDate, user.isLeapMonth, user.birthLocation])
 
   const isEmpty = !user.birthDate || !user.gender
 

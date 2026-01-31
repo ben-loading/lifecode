@@ -1,0 +1,689 @@
+{
+  "solarDate": "2000-8-16",
+  "lunarDate": "二〇〇〇年七月十七",
+  "chineseDate": "庚辰 甲申 丙午 庚寅",
+  "time": "寅时",
+  "timeRange": "03:00~05:00",
+  "sign": "狮子座",
+  "zodiac": "龙",
+  "earthlyBranchOfSoulPalace": "午",
+  "earthlyBranchOfBodyPalace": "戌",
+  "soul": "破军",
+  "body": "文昌",
+  "fiveElementsClass": "木三局",
+  "palaces": [
+    {
+      "name": "财帛",
+      "isBodyPalace": false,
+      "heavenlyStem": "戊",
+      "earthlyBranch": "寅",
+      "majorStars": [
+        {
+          "name": "武曲",
+          "type": "major",
+          "brightness": "得"
+        },
+        {
+          "name": "天相",
+          "type": "major",
+          "brightness": "庙"
+        }
+      ],
+      "minorStars": [
+        {
+          "name": "天马",
+          "type": "tianma",
+          "brightness": ""
+        }
+      ],
+      "adjectiveStars": [
+        {
+          "name": "解神",
+          "type": "helper"
+        },
+        {
+          "name": "三台",
+          "type": "adjective"
+        },
+        {
+          "name": "天寿",
+          "type": "adjective"
+        },
+        {
+          "name": "天巫",
+          "type": "adjective"
+        },
+        {
+          "name": "天厨",
+          "type": "adjective"
+        },
+        {
+          "name": "阴煞",
+          "type": "adjective"
+        },
+        {
+          "name": "天哭",
+          "type": "adjective"
+        }
+      ],
+      "changsheng12": "临官",
+      "stage": {
+        "range": [
+          83,
+          92
+        ],
+        "heavenlyStem": "戊"
+      },
+      "ages": [
+        5,
+        17,
+        29,
+        41,
+        53,
+        65,
+        77,
+        89,
+        101,
+        113
+      ]
+    },
+    {
+      "name": "子女",
+      "isBodyPalace": false,
+      "heavenlyStem": "己",
+      "earthlyBranch": "卯",
+      "majorStars": [
+        {
+          "name": "太阳",
+          "type": "major",
+          "brightness": "庙"
+        },
+        {
+          "name": "天梁",
+          "type": "major",
+          "brightness": "庙"
+        }
+      ],
+      "minorStars": [],
+      "adjectiveStars": [
+        {
+          "name": "天刑",
+          "type": "adjective"
+        }
+      ],
+      "changsheng12": "帝旺",
+      "stage": {
+        "range": [
+          93,
+          102
+        ],
+        "heavenlyStem": "己"
+      },
+      "ages": [
+        6,
+        18,
+        30,
+        42,
+        54,
+        66,
+        78,
+        90,
+        102,
+        114
+      ]
+    },
+    {
+      "name": "夫妻",
+      "isBodyPalace": false,
+      "heavenlyStem": "庚",
+      "earthlyBranch": "辰",
+      "majorStars": [
+        {
+          "name": "七杀",
+          "type": "major",
+          "brightness": "庙"
+        }
+      ],
+      "minorStars": [
+        {
+          "name": "右弼",
+          "type": "soft",
+          "brightness": ""
+        },
+        {
+          "name": "火星",
+          "type": "tough",
+          "brightness": "陷"
+        }
+      ],
+      "adjectiveStars": [
+        {
+          "name": "封诰",
+          "type": "adjective"
+        },
+        {
+          "name": "华盖",
+          "type": "adjective"
+        }
+      ],
+      "changsheng12": "衰",
+      "stage": {
+        "range": [
+          103,
+          112
+        ],
+        "heavenlyStem": "庚"
+      },
+      "ages": [
+        7,
+        19,
+        31,
+        43,
+        55,
+        67,
+        79,
+        91,
+        103,
+        115
+      ]
+    },
+    {
+      "name": "兄弟",
+      "isBodyPalace": false,
+      "heavenlyStem": "辛",
+      "earthlyBranch": "巳",
+      "majorStars": [
+        {
+          "name": "天机",
+          "type": "major",
+          "brightness": "平"
+        }
+      ],
+      "minorStars": [],
+      "adjectiveStars": [
+        {
+          "name": "天喜",
+          "type": "flower"
+        },
+        {
+          "name": "天空",
+          "type": "adjective"
+        },
+        {
+          "name": "孤辰",
+          "type": "adjective"
+        }
+      ],
+      "changsheng12": "病",
+      "stage": {
+        "range": [
+          113,
+          122
+        ],
+        "heavenlyStem": "辛"
+      },
+      "ages": [
+        8,
+        20,
+        32,
+        44,
+        56,
+        68,
+        80,
+        92,
+        104,
+        116
+      ]
+    },
+    {
+      "name": "命宫",
+      "isBodyPalace": false,
+      "heavenlyStem": "壬",
+      "earthlyBranch": "午",
+      "majorStars": [
+        {
+          "name": "紫微",
+          "type": "major",
+          "brightness": "庙"
+        }
+      ],
+      "minorStars": [
+        {
+          "name": "文曲",
+          "type": "soft",
+          "brightness": "陷"
+        }
+      ],
+      "adjectiveStars": [
+        {
+          "name": "凤阁",
+          "type": "adjective"
+        },
+        {
+          "name": "天福",
+          "type": "adjective"
+        },
+        {
+          "name": "截路",
+          "type": "adjective"
+        },
+        {
+          "name": "蜚廉",
+          "type": "adjective"
+        },
+        {
+          "name": "年解",
+          "type": "helper"
+        }
+      ],
+      "changsheng12": "死",
+      "stage": {
+        "range": [
+          3,
+          12
+        ],
+        "heavenlyStem": "壬"
+      },
+      "ages": [
+        9,
+        21,
+        33,
+        45,
+        57,
+        69,
+        81,
+        93,
+        105,
+        117
+      ]
+    },
+    {
+      "name": "父母",
+      "isBodyPalace": false,
+      "heavenlyStem": "癸",
+      "earthlyBranch": "未",
+      "majorStars": [],
+      "minorStars": [
+        {
+          "name": "天钺",
+          "type": "soft",
+          "brightness": ""
+        },
+        {
+          "name": "陀罗",
+          "type": "tough",
+          "brightness": "庙"
+        }
+      ],
+      "adjectiveStars": [
+        {
+          "name": "天姚",
+          "type": "flower"
+        },
+        {
+          "name": "空亡",
+          "type": "adjective"
+        }
+      ],
+      "changsheng12": "墓",
+      "stage": {
+        "range": [
+          13,
+          22
+        ],
+        "heavenlyStem": "癸"
+      },
+      "ages": [
+        10,
+        22,
+        34,
+        46,
+        58,
+        70,
+        82,
+        94,
+        106,
+        118
+      ]
+    },
+    {
+      "name": "福德",
+      "isBodyPalace": false,
+      "heavenlyStem": "甲",
+      "earthlyBranch": "申",
+      "majorStars": [
+        {
+          "name": "破军",
+          "type": "major",
+          "brightness": "得"
+        }
+      ],
+      "minorStars": [
+        {
+          "name": "文昌",
+          "type": "soft",
+          "brightness": "得"
+        },
+        {
+          "name": "禄存",
+          "type": "lucun",
+          "brightness": ""
+        }
+      ],
+      "adjectiveStars": [
+        {
+          "name": "龙池",
+          "type": "adjective"
+        },
+        {
+          "name": "台辅",
+          "type": "adjective"
+        },
+        {
+          "name": "旬空",
+          "type": "adjective"
+        }
+      ],
+      "changsheng12": "绝",
+      "stage": {
+        "range": [
+          23,
+          32
+        ],
+        "heavenlyStem": "甲"
+      },
+      "ages": [
+        11,
+        23,
+        35,
+        47,
+        59,
+        71,
+        83,
+        95,
+        107,
+        119
+      ]
+    },
+    {
+      "name": "田宅",
+      "isBodyPalace": false,
+      "heavenlyStem": "乙",
+      "earthlyBranch": "酉",
+      "majorStars": [],
+      "minorStars": [
+        {
+          "name": "地空",
+          "type": "tough",
+          "brightness": ""
+        },
+        {
+          "name": "擎羊",
+          "type": "tough",
+          "brightness": "陷"
+        }
+      ],
+      "adjectiveStars": [
+        {
+          "name": "咸池",
+          "type": "flower"
+        },
+        {
+          "name": "天贵",
+          "type": "adjective"
+        },
+        {
+          "name": "月德",
+          "type": "adjective"
+        }
+      ],
+      "changsheng12": "胎",
+      "stage": {
+        "range": [
+          33,
+          42
+        ],
+        "heavenlyStem": "乙"
+      },
+      "ages": [
+        12,
+        24,
+        36,
+        48,
+        60,
+        72,
+        84,
+        96,
+        108,
+        120
+      ]
+    },
+    {
+      "name": "官禄",
+      "isBodyPalace": true,
+      "heavenlyStem": "丙",
+      "earthlyBranch": "戌",
+      "majorStars": [
+        {
+          "name": "廉贞",
+          "type": "major",
+          "brightness": "利"
+        },
+        {
+          "name": "天府",
+          "type": "major",
+          "brightness": "庙"
+        }
+      ],
+      "minorStars": [
+        {
+          "name": "左辅",
+          "type": "soft",
+          "brightness": ""
+        }
+      ],
+      "adjectiveStars": [
+        {
+          "name": "天才",
+          "type": "adjective"
+        },
+        {
+          "name": "天虚",
+          "type": "adjective"
+        }
+      ],
+      "changsheng12": "养",
+      "stage": {
+        "range": [
+          43,
+          52
+        ],
+        "heavenlyStem": "丙"
+      },
+      "ages": [
+        1,
+        13,
+        25,
+        37,
+        49,
+        61,
+        73,
+        85,
+        97,
+        109
+      ]
+    },
+    {
+      "name": "仆役",
+      "isBodyPalace": false,
+      "heavenlyStem": "丁",
+      "earthlyBranch": "亥",
+      "majorStars": [
+        {
+          "name": "太阴",
+          "type": "major",
+          "brightness": "庙"
+        }
+      ],
+      "minorStars": [],
+      "adjectiveStars": [
+        {
+          "name": "红鸾",
+          "type": "flower"
+        },
+        {
+          "name": "恩光",
+          "type": "adjective"
+        },
+        {
+          "name": "天官",
+          "type": "adjective"
+        },
+        {
+          "name": "天月",
+          "type": "adjective"
+        },
+        {
+          "name": "天伤",
+          "type": "adjective"
+        }
+      ],
+      "changsheng12": "长生",
+      "stage": {
+        "range": [
+          53,
+          62
+        ],
+        "heavenlyStem": "丁"
+      },
+      "ages": [
+        2,
+        14,
+        26,
+        38,
+        50,
+        62,
+        74,
+        86,
+        98,
+        110
+      ]
+    },
+    {
+      "name": "迁移",
+      "isBodyPalace": false,
+      "heavenlyStem": "戊",
+      "earthlyBranch": "子",
+      "majorStars": [
+        {
+          "name": "贪狼",
+          "type": "major",
+          "brightness": "旺"
+        }
+      ],
+      "minorStars": [
+        {
+          "name": "铃星",
+          "type": "tough",
+          "brightness": "陷"
+        }
+      ],
+      "adjectiveStars": [
+        {
+          "name": "八座",
+          "type": "adjective"
+        }
+      ],
+      "changsheng12": "沐浴",
+      "stage": {
+        "range": [
+          63,
+          72
+        ],
+        "heavenlyStem": "戊"
+      },
+      "ages": [
+        3,
+        15,
+        27,
+        39,
+        51,
+        63,
+        75,
+        87,
+        99,
+        111
+      ]
+    },
+    {
+      "name": "疾厄",
+      "isBodyPalace": false,
+      "heavenlyStem": "己",
+      "earthlyBranch": "丑",
+      "majorStars": [
+        {
+          "name": "天同",
+          "type": "major",
+          "brightness": "不"
+        },
+        {
+          "name": "巨门",
+          "type": "major",
+          "brightness": "不"
+        }
+      ],
+      "minorStars": [
+        {
+          "name": "天魁",
+          "type": "soft",
+          "brightness": ""
+        },
+        {
+          "name": "地劫",
+          "type": "tough",
+          "brightness": ""
+        }
+      ],
+      "adjectiveStars": [
+        {
+          "name": "天德",
+          "type": "adjective"
+        },
+        {
+          "name": "寡宿",
+          "type": "adjective"
+        },
+        {
+          "name": "破碎",
+          "type": "adjective"
+        },
+        {
+          "name": "天使",
+          "type": "adjective"
+        }
+      ],
+      "changsheng12": "冠带",
+      "stage": {
+        "range": [
+          73,
+          82
+        ],
+        "heavenlyStem": "己"
+      },
+      "ages": [
+        4,
+        16,
+        28,
+        40,
+        52,
+        64,
+        76,
+        88,
+        100,
+        112
+      ]
+    }
+  ],
+  "gender": "male",
+  "birthLocation": "北京"
+}
