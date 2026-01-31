@@ -121,7 +121,8 @@ export async function getBalance(): Promise<{ balance: number }> {
 export async function getTransactions(): Promise<{
   transactions: Array<{ id: string; type: 'topup' | 'consume'; amount: number; createdAt: string; description: string }>
 }> {
-  return request('/transactions')
+  const res = await request<{ list: Array<{ id: string; type: string; amount: number; createdAt: string; description: string }> }>('/transactions')
+  return { transactions: (res.list ?? []) as Array<{ id: string; type: 'topup' | 'consume'; amount: number; createdAt: string; description: string }> }
 }
 
 export async function topup(amount: number): Promise<{ balance: number }> {

@@ -1,24 +1,45 @@
 import { NextResponse } from 'next/server'
-import { store } from '@/lib/store'
+import { createClient } from '@/lib/supabase/server'
+import { getUserById, createUser, createTransaction } from '@/lib/db'
 import { unauthorized, serverError } from '@/lib/api-utils'
+
+const NEW_USER_BALANCE = 20
+
+function genInviteRef(): string {
+  return Math.random().toString(36).slice(2, 10)
+}
 
 export async function GET(request: Request) {
   try {
-    const auth = request.headers.get('Authorization')
-    const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null
-    if (!token) return unauthorized()
-    const userId = store.tokens.get(token)
-    if (!userId) return unauthorized('登录已过期')
-    const user = store.users.get(userId)
-    if (!user) return unauthorized('用户不存在')
+    const supabase = await createClient()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+
+    if (!authUser) return unauthorized()
+
+    let appUser = await getUserById(authUser.id)
+    if (!appUser) {
+      appUser = await createUser({
+        id: authUser.id,
+        email: authUser.email!,
+        name: authUser.user_metadata?.name ?? authUser.email!.split('@')[0],
+        balance: NEW_USER_BALANCE,
+        inviteRef: genInviteRef(),
+      })
+      await createTransaction(appUser.id, {
+        type: 'topup',
+        amount: NEW_USER_BALANCE,
+        description: '初始体验能量',
+      })
+      appUser = { ...appUser, isNewUser: true }
+    }
+
     return NextResponse.json({
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        balance: user.balance,
-        isNewUser: user.isNewUser,
-        inviteRef: user.inviteRef,
+        id: appUser.id,
+        email: appUser.email,
+        name: appUser.name,
+        balance: appUser.balance,
+        inviteRef: appUser.inviteRef,
       },
     })
   } catch (e) {

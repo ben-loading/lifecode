@@ -163,3 +163,4 @@ ON CONFLICT (code) DO NOTHING;
 -- 执行完成提示
 -- ============================================
 SELECT 'LifeCode 数据库初始化完成！' as message;
+

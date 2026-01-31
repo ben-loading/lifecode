@@ -2,7 +2,9 @@
 
 import React from 'react'
 import { createContext, useContext, useState, useEffect } from 'react'
-import { getToken, getSession, flushPendingInviteRef, savePendingInviteRefFromUrl, getTransactions, setOnUnauthorized } from './api-client'
+import { getSession, flushPendingInviteRef, savePendingInviteRefFromUrl, getTransactions, setOnUnauthorized, setToken } from './api-client'
+import { getSupabaseClient } from './supabase/client'
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
 export type TransactionType = 'topup' | 'consume'
 
@@ -88,24 +90,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    if (!getToken()) return
-    getSession()
-      .then((res) => {
-        if (res?.user) {
-          setUser({
-            isLoggedIn: true,
-            email: res.user.email,
-            name: res.user.name,
-            inviteRef: res.user.inviteRef,
-          })
-          setBalanceState(res.user.balance)
-          return Promise.all([
-            flushPendingInviteRef(),
-            getTransactions().then((r) => setTransactionsState(r.transactions)).catch(() => {}),
-          ])
-        }
-      })
-      .catch(() => {})
+    const supabase = getSupabaseClient()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+      if (event === 'TOKEN_REFRESHED' && session?.access_token) {
+        setToken(session.access_token)
+      }
+      if (event === 'SIGNED_OUT') {
+        setUser({ isLoggedIn: false })
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    const initSession = async () => {
+      const supabase = getSupabaseClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) {
+        setToken(session.access_token)
+      }
+      const res = await getSession()
+      if (res?.user) {
+        setUser({
+          isLoggedIn: true,
+          email: res.user.email,
+          name: res.user.name,
+          inviteRef: res.user.inviteRef,
+        })
+        setBalanceState(res.user.balance)
+        await flushPendingInviteRef()
+        getTransactions().then((r) => setTransactionsState(r.transactions)).catch(() => {})
+      }
+    }
+    initSession()
   }, [])
 
   return (

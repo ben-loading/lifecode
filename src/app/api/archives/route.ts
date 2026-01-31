@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
-import { store } from '@/lib/store'
 import { getUserIdFromRequest } from '@/lib/auth-server'
+import { getArchivesByUserId, createArchive as dbCreateArchive } from '@/lib/db'
 import { parseJsonBody, badRequest, unauthorized, serverError } from '@/lib/api-utils'
 import type { ApiArchive, CreateArchiveBody } from '@/lib/types/api'
 
 export async function GET(request: Request) {
   try {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     if (!userId) return unauthorized()
-    const list = Array.from(store.archives.values()).filter((a) => a.userId === userId)
+    const list = await getArchivesByUserId(userId)
     return NextResponse.json(list)
   } catch (e) {
     console.error('[archives GET]', e)
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     if (!userId) return unauthorized()
 
     const body = await parseJsonBody<CreateArchiveBody>(request)
@@ -34,22 +34,17 @@ export async function POST(request: Request) {
     if (birthCalendar === 'lunar' && !lunarDate?.trim()) {
       return badRequest('农历需提供 lunarDate')
     }
-    const id = `archive_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
-    const archive: ApiArchive = {
-      id,
-      userId,
-      name: name.trim().slice(0, 12),
+    const archive = await dbCreateArchive(userId, {
+      name: name.trim(),
       gender,
       birthDate,
       birthLocation: (birthLocation ?? '').trim(),
-      createdAt: new Date().toISOString(),
       ...(birthCalendar && { birthCalendar }),
       ...(birthTimeMode && { birthTimeMode }),
       ...(birthTimeBranch != null && { birthTimeBranch }),
       ...(lunarDate && { lunarDate }),
       ...(isLeapMonth != null && { isLeapMonth }),
-    }
-    store.archives.set(id, archive)
+    })
     return NextResponse.json(archive)
   } catch (e) {
     console.error('[archives POST]', e)

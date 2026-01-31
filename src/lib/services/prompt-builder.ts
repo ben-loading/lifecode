@@ -12,6 +12,7 @@ export interface BuiltPrompt {
   userMessage: string
   config: {
     model: string
+    deepseekModel?: string
     temperature: number
     maxTokens: number
     responseFormat?: { type: string }

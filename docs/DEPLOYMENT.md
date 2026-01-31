@@ -12,7 +12,15 @@
 4. 复制 `supabase/init.sql` 文件内容并粘贴
 5. 点击 **Run** 执行
 
-### 3. 验证表结构
+### 3. 执行 Supabase Auth 触发器（必需）
+在 SQL Editor 中执行 `supabase/migrations/002_supabase_auth_user.sql`，创建新用户自动创建 User 记录的触发器。
+
+### 4. Supabase Auth 配置
+在 Supabase Dashboard → Authentication → Providers → Email：
+- 启用 Email 提供商
+- 可选：自定义邮件模板，将 Magic Link 改为 6 位验证码（在模板中使用 `{{ .Token }}`）
+
+### 5. 验证表结构
 执行以下 SQL 验证：
 
 ```sql
@@ -102,14 +110,8 @@ npx tsx scripts/simulate-report-generation.ts
 ## 四、注意事项
 
 ### 当前架构
-- **数据存储**：内存存储（`src/lib/store.ts`）
-- **数据库**：已准备好 Supabase 表结构，但 API 尚未切换到数据库
-- **认证**：使用内存 Token，非 Supabase Auth
-
-### 后续迁移
-1. 将 API Routes 中的 `store` 调用替换为 Supabase 查询
-2. 启用 Supabase Auth 替换当前的邮箱验证码登录
-3. 启用 Row Level Security (RLS) 保护数据
+- **数据存储**：Supabase PostgreSQL（`src/lib/db.ts`）
+- **认证**：Supabase Auth（邮箱 OTP 验证码）
 
 ### 测试用户
 - 任意邮箱登录

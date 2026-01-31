@@ -1,25 +1,29 @@
 import { NextResponse } from 'next/server'
-import { store } from '@/lib/store'
 import { getUserIdFromRequest } from '@/lib/auth-server'
+import {
+  getArchiveById,
+  getUserById,
+  updateUserBalance,
+  createTransaction,
+  createReportJob,
+  updateReportJob,
+  getReportJobById,
+  getInvitesByInvitee,
+  setInviteValid,
+  getValidInviteCount,
+} from '@/lib/db'
 import { parseJsonBody, badRequest, unauthorized, serverError } from '@/lib/api-utils'
 import { MAIN_REPORT_COST } from '@/lib/costs'
 import { INVITE_REWARD, INVITE_MAX_COUNT } from '@/lib/invite'
-import type { ApiReportJob } from '@/lib/types/api'
 import { generateMainReport } from '@/lib/services/report-service'
 
-function processInvitesOnMainReportComplete(inviteeUserId: string) {
-  const pending = Array.from(store.invites.values()).filter(
-    (i) => i.inviteeId === inviteeUserId && !i.isValid
-  )
+async function processInvitesOnMainReportComplete(inviteeUserId: string) {
+  const pending = await getInvitesByInvitee(inviteeUserId)
   for (const inv of pending) {
-    inv.isValid = true
-    const inviter = store.users.get(inv.inviterId)
-    if (!inviter) continue
-    const validCount = Array.from(store.invites.values()).filter(
-      (i) => i.inviterId === inv.inviterId && i.isValid
-    ).length
+    await setInviteValid(inv.id)
+    const validCount = await getValidInviteCount(inv.inviterId)
     if (validCount <= INVITE_MAX_COUNT) {
-      inviter.balance += INVITE_REWARD
+      await updateUserBalance(inv.inviterId, INVITE_REWARD)
     }
   }
 }
@@ -34,56 +38,52 @@ const STEPS = [
 ]
 
 async function runReportJob(jobId: string, archiveId: string) {
-  const job = store.reportJobs.get(jobId)
-  if (!job || job.status !== 'running') return
-  
   let step = 0
   const totalSteps = STEPS.length
-  
+
   const tick = async () => {
     step += 1
-    const j = store.reportJobs.get(jobId)
+    const j = await getReportJobById(jobId)
     if (!j || j.status !== 'running') return
-    
-    j.currentStep = step
-    j.totalSteps = totalSteps
-    j.stepLabel = STEPS[step - 1]
-    
-    // 最后一步：调用真实的 LLM 生成逻辑
+
     if (step >= totalSteps) {
       try {
-        // 调用真实报告生成服务
         const report = await generateMainReport(archiveId)
-        
-        // 报告已在 report-service 中存储，这里只需标记任务完成
-        j.status = 'completed'
-        j.completedAt = new Date().toISOString()
-        j.stepLabel = undefined
-        
-        // 处理邀请奖励
-        const archive = store.archives.get(archiveId)
+        await updateReportJob(jobId, {
+          status: 'completed',
+          completedAt: new Date().toISOString(),
+          stepLabel: undefined,
+        })
+
+        const archive = await getArchiveById(archiveId)
         if (archive) {
-          processInvitesOnMainReportComplete(archive.userId)
+          await processInvitesOnMainReportComplete(archive.userId)
         }
       } catch (error) {
         console.error('[runReportJob] Generation failed:', error)
-        j.status = 'failed'
-        j.stepLabel = '报告生成失败'
-        j.error = error instanceof Error ? error.message : String(error)
+        await updateReportJob(jobId, {
+          status: 'failed',
+          stepLabel: '报告生成失败',
+          error: error instanceof Error ? error.message : String(error),
+        })
       }
       return
     }
-    
-    // 非最后一步：继续模拟进度
+
+    await updateReportJob(jobId, {
+      currentStep: step,
+      totalSteps,
+      stepLabel: STEPS[step - 1],
+    })
     setTimeout(() => tick(), 1500)
   }
-  
+
   setTimeout(() => tick(), 1500)
 }
 
 export async function POST(request: Request) {
   try {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     if (!userId) return unauthorized()
 
     const body = await parseJsonBody<{ archiveId?: string }>(request)
@@ -91,38 +91,24 @@ export async function POST(request: Request) {
     const archiveId = typeof body.archiveId === 'string' ? body.archiveId.trim() : ''
     if (!archiveId) return badRequest('缺少 archiveId')
 
-    const archive = store.archives.get(archiveId)
+    const archive = await getArchiveById(archiveId)
     if (!archive || archive.userId !== userId) {
       return NextResponse.json({ error: '档案不存在' }, { status: 404 })
     }
-    const user = store.users.get(userId)
+    const user = await getUserById(userId)
     if (!user) return NextResponse.json({ error: '用户不存在' }, { status: 404 })
     if (user.balance < MAIN_REPORT_COST) {
       return NextResponse.json({ message: '不足能量要充值', error: 'INSUFFICIENT_BALANCE' }, { status: 402 })
     }
 
-    user.balance -= MAIN_REPORT_COST
-    const txList = store.userTransactions.get(userId) ?? []
-    txList.unshift({
-      id: `tx_${userId}_${Date.now()}`,
+    await updateUserBalance(userId, -MAIN_REPORT_COST)
+    await createTransaction(userId, {
       type: 'consume',
       amount: MAIN_REPORT_COST,
-      createdAt: new Date().toISOString(),
       description: '主报告生成',
     })
-    store.userTransactions.set(userId, txList)
-    if (user.isNewUser) user.isNewUser = false
 
-    const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
-    const job: ApiReportJob = {
-      jobId,
-      archiveId,
-      status: 'running',
-      currentStep: 0,
-      totalSteps: STEPS.length,
-      stepLabel: STEPS[0],
-    }
-    store.reportJobs.set(jobId, job)
+    const jobId = await createReportJob(archiveId, 'running', STEPS[0])
     runReportJob(jobId, archiveId)
 
     return NextResponse.json({ jobId })

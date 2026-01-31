@@ -5,6 +5,7 @@ import { ChevronLeft, LogOut, FileText } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useAppContext } from '@/lib/context'
 import { clearToken, listArchives } from '@/lib/api-client'
+import { getSupabaseClient } from '@/lib/supabase/client'
 import type { ApiArchive } from '@/lib/types/api'
 import { TopUpDialog } from '@/components/topup-dialog'
 import { TransactionHistoryDialog } from '@/components/transaction-history-dialog'
@@ -53,7 +54,8 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
     router.push('/report')
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await getSupabaseClient().auth.signOut()
     clearToken()
     setUser({ isLoggedIn: false })
     onClose()

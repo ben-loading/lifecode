@@ -1,5 +1,5 @@
 /**
- * 开发环境专用：调出内存中的档案与主报告，便于按档案名（如 2222333）查找并检查内容。
+ * 开发环境专用：查询 Supabase 中的档案与主报告。
  * 仅当 NODE_ENV=development 时可用。
  *
  * GET /api/debug/store           — 返回所有档案与主报告
@@ -7,27 +7,31 @@
  */
 
 import { NextResponse } from 'next/server'
-import { store } from '@/lib/store'
+import { createClient } from '@supabase/supabase-js'
 
 export async function GET(request: Request) {
   if (process.env.NODE_ENV !== 'development') {
     return NextResponse.json({ error: '仅开发环境可用' }, { status: 404 })
   }
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !supabaseKey) {
+    return NextResponse.json({ error: 'Supabase 未配置' }, { status: 500 })
+  }
+
+  const client = createClient(supabaseUrl, supabaseKey)
   const { searchParams } = new URL(request.url)
   const filterName = searchParams.get('name')?.trim()
 
-  const archives = Array.from(store.archives.entries()).map(([id, a]) => ({
-    id,
-    name: a.name,
-    userId: a.userId,
-    gender: a.gender,
-    birthDate: a.birthDate,
-    birthLocation: a.birthLocation,
-    createdAt: a.createdAt,
-  }))
+  const { data: archives, error: archivesError } = await client
+    .from('Archive')
+    .select('id, name, userId, gender, birthDate, birthLocation, createdAt')
+    .order('createdAt', { ascending: false })
 
-  const archiveToReport = Object.fromEntries(store.archiveToReport)
+  if (archivesError) {
+    return NextResponse.json({ error: archivesError.message }, { status: 500 })
+  }
 
   const reportsWithArchive: Array<{
     archiveId: string
@@ -36,13 +40,16 @@ export async function GET(request: Request) {
     report: unknown
   }> = []
 
-  for (const [archiveId, reportId] of store.archiveToReport) {
-    const archive = store.archives.get(archiveId)
-    const report = store.mainReports.get(reportId)
-    if (archive && report) {
-      if (filterName && archive.name !== filterName) continue
+  for (const archive of archives ?? []) {
+    if (filterName && archive.name !== filterName) continue
+    const { data: report } = await client
+      .from('MainReport')
+      .select('*')
+      .eq('archiveId', archive.id)
+      .single()
+    if (report) {
       reportsWithArchive.push({
-        archiveId,
+        archiveId: archive.id,
         archiveName: archive.name,
         userId: archive.userId,
         report,
@@ -50,16 +57,17 @@ export async function GET(request: Request) {
     }
   }
 
+  const filteredArchives = filterName ? (archives ?? []).filter((a) => a.name === filterName) : archives ?? []
+
   if (filterName && reportsWithArchive.length === 0) {
     return NextResponse.json({
-      message: `未找到档案名为「${filterName}」的主报告（可能尚未生成或服务已重启清空内存）`,
-      archives: archives.filter((a) => a.name === filterName),
+      message: `未找到档案名为「${filterName}」的主报告`,
+      archives: filteredArchives,
     })
   }
 
   return NextResponse.json({
-    archives: filterName ? archives.filter((a) => a.name === filterName) : archives,
-    archiveToReport,
+    archives: filteredArchives,
     reportsByArchive: reportsWithArchive,
   })
 }

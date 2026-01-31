@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
-import { store } from '@/lib/store'
 import { getUserIdFromRequest } from '@/lib/auth-server'
+import { getUserById, updateUserBalance, createTransaction } from '@/lib/db'
 import { parseJsonBody, badRequest, unauthorized, serverError } from '@/lib/api-utils'
 
 export async function POST(request: Request) {
   try {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     if (!userId) return unauthorized()
-    const user = store.users.get(userId)
+    const user = await getUserById(userId)
     if (!user) return NextResponse.json({ error: '用户不存在' }, { status: 404 })
 
     const body = await parseJsonBody<{ amount?: number }>(request)
@@ -15,18 +15,15 @@ export async function POST(request: Request) {
     const amount = typeof body.amount === 'number' ? Math.max(0, Math.floor(body.amount)) : 0
     if (amount <= 0) return badRequest('充值金额无效')
 
-    user.balance += amount
-    const list = store.userTransactions.get(userId) ?? []
-    list.unshift({
-      id: `tx_${userId}_${Date.now()}`,
+    await updateUserBalance(userId, amount)
+    await createTransaction(userId, {
       type: 'topup',
       amount,
-      createdAt: new Date().toISOString(),
       description: '充值能量',
     })
-    store.userTransactions.set(userId, list)
 
-    return NextResponse.json({ balance: user.balance })
+    const updated = await getUserById(userId)
+    return NextResponse.json({ balance: updated!.balance })
   } catch (e) {
     console.error('[topup]', e)
     return serverError()

@@ -8,8 +8,8 @@ import { calculateAstrolabe } from './iztro-service'
 import { buildMainReportPrompt } from './prompt-builder'
 import { callLLM } from './llm-service'
 import { MainReportSchema, extractJsonFromResponse, normalizeMainReportOutput, type ValidatedMainReport } from './report-validator'
-import type { ApiArchive, ApiMainReport } from '@/lib/types/api'
-import { store } from '@/lib/store'
+import type { ApiMainReport } from '@/lib/types/api'
+import { getArchiveById, createMainReport } from '@/lib/db'
 
 /**
  * 生成主报告（完整流程）
@@ -18,7 +18,7 @@ import { store } from '@/lib/store'
  */
 export async function generateMainReport(archiveId: string): Promise<ApiMainReport> {
   // 1. 获取档案信息
-  const archive = store.archives.get(archiveId)
+  const archive = await getArchiveById(archiveId)
   if (!archive) {
     throw new Error(`Archive not found: ${archiveId}`)
   }
@@ -61,23 +61,8 @@ export async function generateMainReport(archiveId: string): Promise<ApiMainRepo
     ...validatedContent
   } as ApiMainReport
 
-  // 8. 存储到内存数据库
-  store.mainReports.set(reportId, report)
-
-  // 9. 关联到档案
-  store.archiveToReport.set(archiveId, reportId)
+  // 8. 存储到 Supabase
+  await createMainReport(report)
 
   return report
-}
-
-/**
- * 获取指定档案的主报告
- * @param archiveId - 档案 ID
- * @returns 主报告内容，不存在则返回 null
- */
-export function getMainReportByArchiveId(archiveId: string): ApiMainReport | null {
-  const reportId = store.archiveToReport.get(archiveId)
-  if (!reportId) return null
-
-  return store.mainReports.get(reportId) || null
 }
