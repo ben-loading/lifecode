@@ -71,8 +71,13 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
       const apiRes = await fetch('/api/auth/session', {
         headers: { Authorization: `Bearer ${data.session.access_token}` },
       })
-      if (!apiRes.ok) throw new Error('获取用户信息失败')
-      const { user: apiUser } = await apiRes.json()
+      const body = await apiRes.json().catch(() => ({}))
+      if (!apiRes.ok) {
+        const serverMsg = body?.error
+        throw new Error(typeof serverMsg === 'string' ? serverMsg : '获取用户信息失败')
+      }
+      const apiUser = body?.user
+      if (!apiUser) throw new Error('获取用户信息失败')
 
       setUser({
         isLoggedIn: true,
