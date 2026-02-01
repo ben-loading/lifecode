@@ -13,14 +13,104 @@
 5. 点击 **Run** 执行
 
 ### 3. 执行 Supabase Auth 触发器（必需）
-在 SQL Editor 中执行 `supabase/migrations/002_supabase_auth_user.sql`，创建新用户自动创建 User 记录的触发器。
+在 SQL Editor 中执行 `supabase/migrations/002_supabase_auth_user.sql`，创建新用户自动创建 User 记录的触发器。  
+若出现 **「Database error saving new user」**，再执行 `supabase/migrations/003_fix_new_user_trigger.sql` 修复触发器。
 
 ### 4. Supabase Auth 配置
 在 Supabase Dashboard → Authentication → Providers → Email：
 - 启用 Email 提供商
 - 可选：自定义邮件模板，将 Magic Link 改为 6 位验证码（在模板中使用 `{{ .Token }}`）
 
-### 5. 验证表结构
+### 5. 自定义 SMTP（推荐生产环境）
+默认 SMTP 仅限团队邮箱、约 2 条/小时，不适合正式环境。使用自定义 SMTP 可发任意邮箱、提高送达率。
+
+**入口**：Supabase Dashboard → **Authentication** → **SMTP**（或 Project Settings → Auth → SMTP）
+
+**Sender email address 如何使之有效**：
+
+- **含义**：发件人邮箱（From），用户收到的验证码邮件会显示「来自」这个地址。服务商只允许从「已验证」的发件人发送，否则会拒发或进垃圾箱。
+- **两种用法**：
+  1. **测试 / 快速开通**：用服务商提供的测试发件人（如 Resend 的 `onboarding@resend.dev`），无需域名，注册后即可在 Supabase 里填该地址。
+  2. **正式环境**：用你自己的域名，例如 `no-reply@你的域名.com`。在服务商后台添加该域名，按提示在域名 DNS 里添加 MX / DKIM 等记录，验证通过后即可在 Supabase 的 Sender email 里填 `no-reply@你的域名.com`。
+- **注意**：Sender email 必须与你在该服务商里验证过的域名或测试发件人一致，否则会报错或发不出去。
+
+**必填项**（从邮件服务商获取）：
+
+| 配置项 | 说明 | 示例 |
+|--------|------|------|
+| **Sender email** | 发件人邮箱（From） | `no-reply@yourdomain.com` |
+| **Sender name** | 发件人名称 | `人生解码` |
+| **Host** | SMTP 服务器地址 | `smtp.resend.com` |
+| **Port** | 端口（TLS 常用 587） | `587` |
+| **Username** | SMTP 登录用户名 | 服务商提供的用户名或 API Key |
+| **Password** | SMTP 密码或 API Key | 服务商提供的密钥 |
+
+**推荐服务商与设置**：
+
+| 服务商 | 免费额度 | 特点 | 适合 |
+|--------|----------|------|------|
+| **Resend** | 3,000 条/月 | 配置简单、文档好、Supabase 官方示例多 | 首选，小项目/起步 |
+| **Brevo** | 300 条/天 | 免费额度大、有中文 | 不想付费时 |
+| **SendGrid** | 100 条/天 | 老牌、稳定 | 已有 Twilio 或需企业级 |
+| **AWS SES** | 62,000 条/月（从 EC2 发） | 便宜、需 AWS 账号 | 已有 AWS、量大 |
+
+---
+
+**1. Resend（推荐）**
+
+1. 注册 [resend.com](https://resend.com)，进入 **API Keys** 创建 Key，复制保存。
+2. **Domains** 里添加你的发信域名（如 `yourdomain.com`），按提示添加 MX/DKIM 等 DNS 记录；测试阶段可用 Resend 提供的 `onboarding@resend.dev` 等受限域名。
+3. 在 Supabase SMTP 中填写：
+   - **Sender email**：`onboarding@resend.dev`（测试）或 `no-reply@你的域名.com`
+   - **Sender name**：`人生解码`
+   - **Host**：`smtp.resend.com`
+   - **Port**：`465` 或 `587`
+   - **Username**：`resend`（固定）
+   - **Password**：粘贴你的 **Resend API Key**
+4. 保存后发送测试邮件验证。
+
+**2. Brevo（免费额度大）**
+
+**Brevo 如何创建发件人**：
+
+1. 登录 [Brevo](https://app.brevo.com) → 右上角头像下拉 → **设置** → **发件人、域名、IP** → **发件人**。
+2. 点击 **添加发件人**。
+3. 填写 **发件人名称**（From name）：如 `人生解码`。
+4. 填写 **发件人邮箱**（From email）：如 `no-reply@你的域名.com`，或你已有的邮箱（如 Gmail，但建议用自己域名）。
+5. 点击 **保存**。
+6. **验证发件人**（二选一）：
+   - **方式 A**：若填的是你自己的邮箱，Brevo 会往该邮箱发一封 6 位验证码，到邮箱里抄码填回 Brevo，点 **验证发件人** 即可。
+   - **方式 B（推荐）**：先做 **域名认证**：**设置** → **发件人、域名、IP** → **域名** → 添加你的域名，按提示在 DNS 里添加 MX/DKIM 等记录；认证通过后，使用该域名的发件人（如 `no-reply@你的域名.com`）会自动视为已验证，无需再收验证码。
+
+**Supabase SMTP 填写**：
+
+1. **设置** → **SMTP & API** → **SMTP** 标签 → **生成新的 SMTP 密钥**，命名后生成并复制密钥（只显示一次）。
+2. 在 Supabase SMTP 中填写：
+   - **Sender email**：你在 Brevo 里创建并验证过的发件人邮箱（同上）
+   - **Sender name**：`人生解码`
+   - **Host**：`smtp-relay.brevo.com`
+   - **Port**：`587`
+   - **Username**：Brevo 里显示的 **SMTP 登录邮箱**（通常是你的 Brevo 账号邮箱或发件人邮箱，在 SMTP 页面可见）
+   - **Password**：刚才复制的 **SMTP 密钥**（不是账号密码）
+3. 保存后发送测试邮件验证。
+
+**3. SendGrid**
+
+1. 注册 [sendgrid.com](https://sendgrid.com)，**Settings** → **API Keys** 创建 API Key（需 Mail Send 权限）。
+2. 在 Supabase SMTP 中填写：
+   - **Sender email**：在 SendGrid 中验证过的发件人邮箱
+   - **Sender name**：`人生解码`
+   - **Host**：`smtp.sendgrid.net`
+   - **Port**：`587`
+   - **Username**：固定填 `apikey`
+   - **Password**：粘贴你的 **SendGrid API Key**
+3. 保存后发送测试邮件验证。
+
+---
+
+保存后，Auth 邮件（验证码、Magic Link 等）会通过该 SMTP 发送。可在 **Authentication → Rate Limits** 调整每小时发送上限（默认约 30 条/小时）。
+
+### 6. 验证表结构
 执行以下 SQL 验证：
 
 ```sql
