@@ -68,16 +68,16 @@ vercel env add DEEPSEEK_API_KEY
 vercel env add LLM_PROVIDER
 ```
 
-**环境变量值**（从 .env.local 获取）：
+**环境变量值**（从 Supabase Dashboard、.env.local 等处获取，**切勿将真实密钥写入文档或提交到仓库**）：
 
-| 变量名 | 值 |
+| 变量名 | 说明 |
 |--------|-----|
-| NEXT_PUBLIC_SUPABASE_URL | https://erkmeujwxpehyeeosgik.supabase.co |
-| NEXT_PUBLIC_SUPABASE_ANON_KEY | eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... |
-| SUPABASE_SERVICE_ROLE_KEY | eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... |
-| DATABASE_URL | postgresql://postgres:xxx@db.erkmeujwxpehyeeosgik.supabase.co:5432/postgres?sslmode=require |
-| DEEPSEEK_API_KEY | sk-1d315b1d683042a684f8730b4ec732d8 |
-| LLM_PROVIDER | deepseek |
+| NEXT_PUBLIC_SUPABASE_URL | Supabase 项目 URL（Dashboard → Settings → API） |
+| NEXT_PUBLIC_SUPABASE_ANON_KEY | Supabase anon public key |
+| SUPABASE_SERVICE_ROLE_KEY | Supabase service_role key（保密） |
+| DATABASE_URL | PostgreSQL 连接串（Supabase → Settings → Database） |
+| DEEPSEEK_API_KEY | DeepSeek API Key（https://platform.deepseek.com） |
+| LLM_PROVIDER | `deepseek` |
 
 ### 4. 部署项目
 ```bash
@@ -107,7 +107,16 @@ npx tsx scripts/simulate-report-generation.ts
 
 ---
 
-## 四、注意事项
+## 四、安全说明
+
+- **API 密钥只存在于服务器 / 环境变量**，不要写入代码或文档
+- 本地：`.env.local`（已在 .gitignore，不会被提交）
+- 线上：Vercel Dashboard → Settings → Environment Variables
+- 若密钥已泄露：立即在对应平台撤销并重新生成，再更新 Vercel 与本地配置
+
+---
+
+## 五、注意事项
 
 ### 当前架构
 - **数据存储**：Supabase PostgreSQL（`src/lib/db.ts`）
