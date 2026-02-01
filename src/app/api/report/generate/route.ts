@@ -12,7 +12,7 @@ import {
   setInviteValid,
   getValidInviteCount,
 } from '@/lib/db'
-import { parseJsonBody, badRequest, unauthorized, serverError } from '@/lib/api-utils'
+import { parseJsonBody, badRequest, unauthorized } from '@/lib/api-utils'
 import { MAIN_REPORT_COST } from '@/lib/costs'
 import { INVITE_REWARD, INVITE_MAX_COUNT } from '@/lib/invite'
 import { generateMainReport } from '@/lib/services/report-service'
@@ -113,7 +113,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ jobId })
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
     console.error('[report/generate]', e)
-    return serverError('发起失败')
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

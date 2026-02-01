@@ -218,12 +218,15 @@ export async function getReportJobById(jobId: string): Promise<ApiReportJob | nu
 
 export async function createReportJob(archiveId: string, status: string, stepLabel?: string): Promise<string> {
   const client = getClient()
+  const now = new Date().toISOString()
   const { data, error } = await client.from('ReportJob').insert({
     archiveId,
     status,
     currentStep: 0,
     totalSteps: 6,
     stepLabel: stepLabel ?? '编码解析',
+    createdAt: now,
+    updatedAt: now,
   }).select('id').single()
   if (error) throw new Error(`创建任务失败: ${error.message}`)
   return data.id as string
@@ -259,11 +262,13 @@ export async function getTransactionsByUserId(userId: string): Promise<ServerTra
 
 export async function createTransaction(userId: string, tx: { type: string; amount: number; description: string }): Promise<void> {
   const client = getClient()
+  const now = new Date().toISOString()
   await client.from('Transaction').insert({
     userId,
     type: tx.type,
     amount: tx.amount,
     description: tx.description,
+    createdAt: now,
   })
 }
 
@@ -304,7 +309,8 @@ export async function setInviteValid(id: string): Promise<void> {
 
 export async function createInvite(inviterId: string, inviteeId: string): Promise<string> {
   const client = getClient()
-  const { data, error } = await client.from('Invite').insert({ inviterId, inviteeId, isValid: false }).select('id').single()
+  const now = new Date().toISOString()
+  const { data, error } = await client.from('Invite').insert({ inviterId, inviteeId, isValid: false, createdAt: now }).select('id').single()
   if (error) throw new Error(`创建邀请失败: ${error.message}`)
   return data.id as string
 }

@@ -47,7 +47,8 @@ export async function POST(request: Request) {
     })
     return NextResponse.json(archive)
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
     console.error('[archives POST]', e)
-    return serverError('创建失败')
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
