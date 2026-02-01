@@ -13,17 +13,18 @@ import { getArchiveById, createMainReport } from '@/lib/db'
 
 /**
  * 生成主报告（完整流程）
+ * 严格使用该档案在 DB 中已保存的性别、八字、命盘等，不依赖前端或会话状态。
  * @param archiveId - 档案 ID
  * @returns 验证后的主报告内容
  */
 export async function generateMainReport(archiveId: string): Promise<ApiMainReport> {
-  // 1. 获取档案信息
+  // 1. 从 DB 获取档案（性别、出生日期/时辰、地区等）
   const archive = await getArchiveById(archiveId)
   if (!archive) {
     throw new Error(`Archive not found: ${archiveId}`)
   }
 
-  // 2. 调用 iztro 计算命盘
+  // 2. 用档案数据计算命盘（iztro）
   const iztroInput = await calculateAstrolabe(archive)
 
   // 3. 构建 Prompt

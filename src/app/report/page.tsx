@@ -24,7 +24,7 @@ import { useAppContext } from '@/lib/context'
 import { useState, useEffect } from 'react'
 import { SideMenu } from '@/components/side-menu'
 import { ShareDialog } from '@/components/share-dialog'
-import { getReportJobStatus, getMainReport, createReportJob, createReportJobRetry } from '@/lib/api-client'
+import { getReportJobStatus, getMainReport, getReportArchiveStatus, createReportJob, createReportJobRetry } from '@/lib/api-client'
 import type { ApiMainReport } from '@/lib/types/api'
 
 // 分析步骤：与后端流程对应（时辰→八字→排盘→先天→大限/流年→输出），前端用计时驱动，不依赖轮询步进
@@ -80,9 +80,18 @@ function ReportPageContent() {
     hasJobFromUrl ? 0 : analysisStepsConfig.length,
   )
   const [reportFetchedForArchiveId, setReportFetchedForArchiveId] = useState<string | null>(null)
+  const [isRegenerating, setIsRegenerating] = useState(false)
   const showEmptyState = !hasJobFromUrl && !mainReport && !effectiveArchiveId
   const loadingReportByArchive = !hasJobFromUrl && Boolean(effectiveArchiveId) && reportFetchedForArchiveId !== effectiveArchiveId
   const noReportForCurrentArchive = !hasJobFromUrl && Boolean(effectiveArchiveId) && reportFetchedForArchiveId === effectiveArchiveId && !mainReport
+
+  // URL 有 jobId+archiveId 时同步为“分析中”，避免点击重新生成/开启解码后无过渡动画
+  useEffect(() => {
+    if (hasJobFromUrl && jobId && !mainReport && !generationError) {
+      setIsAnalyzing(true)
+      setCurrentStep(0)
+    }
+  }, [hasJobFromUrl, jobId, mainReport, generationError])
 
   // 前端计时驱动步骤：总时长约 70s 平摊至前 5 步，内容生成（50s+）不集中压在最后一步
   useEffect(() => {
@@ -141,18 +150,28 @@ function ReportPageContent() {
     }
   }, [jobId, archiveId, setUser, setHasCompletedMainReport])
 
-  // 无 jobId 时按当前档案拉取主报告（URL archiveId 优先），无报告时清空展示避免错用其他档案报告
+  // 无 jobId 时按档案查状态：有结果直接展示，有进行中任务则跳转走分析动画，否则显示生成失败
   useEffect(() => {
     if (jobId || !effectiveArchiveId) return
     setReportFetchedForArchiveId(null)
-    getMainReport(effectiveArchiveId).then((report) => {
-      setMainReport(report ?? null)
+    getReportArchiveStatus(effectiveArchiveId).then(({ report, runningJob }) => {
+      if (report) {
+        setMainReport(report)
+        setReportFetchedForArchiveId(effectiveArchiveId)
+        return
+      }
+      if (runningJob?.jobId) {
+        router.replace(`/report?jobId=${runningJob.jobId}&archiveId=${effectiveArchiveId}`)
+        setReportFetchedForArchiveId(effectiveArchiveId)
+        return
+      }
+      setMainReport(null)
       setReportFetchedForArchiveId(effectiveArchiveId)
     }).catch(() => {
       setMainReport(null)
       setReportFetchedForArchiveId(effectiveArchiveId)
     })
-  }, [jobId, effectiveArchiveId])
+  }, [jobId, effectiveArchiveId, router])
 
   // 人生剧本数据（优先使用 API 主报告）
   const lifeScript = {
@@ -359,9 +378,15 @@ function ReportPageContent() {
           )}
           <div className="flex flex-col gap-3">
             <Button
+              disabled={isRegenerating}
               onClick={async () => {
-                if (!effectiveArchiveId) return
+                if (!effectiveArchiveId || isRegenerating) return
                 setRetryError(null)
+                setMainReport(null)
+                setGenerationError(null)
+                setIsAnalyzing(true)
+                setCurrentStep(0)
+                setIsRegenerating(true)
                 try {
                   const { jobId: newJobId } = await createReportJobRetry(effectiveArchiveId)
                   router.replace(`/report?jobId=${newJobId}&archiveId=${effectiveArchiveId}`)
@@ -369,26 +394,40 @@ function ReportPageContent() {
                   const msg = err instanceof Error ? err.message : String(err)
                   if (msg.includes('请先使用') || msg.includes('NEED_FIRST_GENERATE')) {
                     setRetryError('请先使用「开启解码」生成报告')
+                  } else if (msg.includes('已有生成任务进行中') || msg.includes('JOB_ALREADY_RUNNING')) {
+                    setRetryError('该档案已有生成任务进行中，请稍后再试')
                   } else {
                     setRetryError('重新生成失败，请稍后再试')
                   }
+                  setIsAnalyzing(false)
+                } finally {
+                  setIsRegenerating(false)
                 }
               }}
               className="rounded-full"
             >
-              重新生成
+              {isRegenerating ? '提交中…' : '重新生成'}
             </Button>
             {retryError?.includes('请先使用') && (
               <Button
                 variant="outline"
+                disabled={isRegenerating}
                 onClick={async () => {
-                  if (!effectiveArchiveId) return
+                  if (!effectiveArchiveId || isRegenerating) return
                   setRetryError(null)
+                  setMainReport(null)
+                  setGenerationError(null)
+                  setIsAnalyzing(true)
+                  setCurrentStep(0)
+                  setIsRegenerating(true)
                   try {
                     const { jobId: newJobId } = await createReportJob({ archiveId: effectiveArchiveId })
                     router.replace(`/report?jobId=${newJobId}&archiveId=${effectiveArchiveId}`)
                   } catch {
                     setRetryError('发起失败，请稍后再试')
+                    setIsAnalyzing(false)
+                  } finally {
+                    setIsRegenerating(false)
                   }
                 }}
                 className="rounded-full"
@@ -492,10 +531,15 @@ function ReportPageContent() {
               <p className="text-xs text-muted-foreground max-w-xs mx-auto whitespace-pre-wrap">{generationError}</p>
               <p className="text-xs text-muted-foreground max-w-xs mx-auto">可免费重新生成，不会再次扣除能量</p>
               <Button
+                disabled={isRegenerating}
                 onClick={async () => {
                   const aid = effectiveArchiveId ?? archiveId
-                  if (!aid) return
+                  if (!aid || isRegenerating) return
                   setGenerationError(null)
+                  setMainReport(null)
+                  setIsAnalyzing(true)
+                  setCurrentStep(0)
+                  setIsRegenerating(true)
                   try {
                     const { jobId: newJobId } = await createReportJobRetry(aid)
                     router.replace(`/report?jobId=${newJobId}&archiveId=${aid}`)
@@ -503,14 +547,19 @@ function ReportPageContent() {
                     const msg = err instanceof Error ? err.message : String(err)
                     if (msg.includes('请先使用') || msg.includes('NEED_FIRST_GENERATE')) {
                       setGenerationError('请先使用「开启解码」生成报告')
+                    } else if (msg.includes('已有生成任务进行中') || msg.includes('JOB_ALREADY_RUNNING')) {
+                      setGenerationError('该档案已有生成任务进行中，请稍后再试')
                     } else {
                       setGenerationError('重新生成失败，请稍后再试')
                     }
+                    setIsAnalyzing(false)
+                  } finally {
+                    setIsRegenerating(false)
                   }
                 }}
                 className="rounded-full"
               >
-                重新生成
+                {isRegenerating ? '提交中…' : '重新生成'}
               </Button>
             </section>
           ) : (

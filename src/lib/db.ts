@@ -232,6 +232,21 @@ export async function hasReportJobForArchive(archiveId: string): Promise<boolean
   return (count ?? 0) > 0
 }
 
+/** 该档案是否已有 running 或 processing 任务（禁止重复发起） */
+export async function getRunningReportJobForArchive(archiveId: string): Promise<ApiReportJob | null> {
+  const client = getClient()
+  const { data, error } = await client
+    .from('ReportJob')
+    .select('*')
+    .eq('archiveId', archiveId)
+    .in('status', ['running', 'processing'])
+    .order('createdAt', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error || !data) return null
+  return rowToReportJob(data)
+}
+
 export async function createReportJob(archiveId: string, status: string, stepLabel?: string): Promise<string> {
   const client = getClient()
   const now = new Date().toISOString()

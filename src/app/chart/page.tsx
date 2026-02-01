@@ -3,10 +3,12 @@
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { useAppContext } from '@/lib/context'
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { astro } from 'iztro'
 import { Card, CardContent } from '@/components/ui/card'
 import { getLongitudeByRegion, getSolarTimeOffsetMinutes } from '@/lib/birth-constants'
+import { getArchive, listArchives } from '@/lib/api-client'
+import type { ApiArchive } from '@/lib/types/api'
 
 /** 阳历小时(0-23) 转 iztro 时辰序号 0~12（0=早子 00-01, 12=晚子 23-00） */
 function hourToTimeIndex(hour: number): number {
@@ -65,31 +67,62 @@ function getPalaceByBranch(palaces: PalaceItem[], branch: string): PalaceItem | 
 export default function ZiweiChartPage() {
   const router = useRouter()
   const { user } = useAppContext()
+  const [archive, setArchive] = useState<ApiArchive | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  // 命盘资料从当前档案（数据库）拉取，刷新/二次登录后仍能正确展示
+  useEffect(() => {
+    if (!user.isLoggedIn) {
+      setArchive(null)
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    const load = async () => {
+      try {
+        if (user.currentArchiveId) {
+          const a = await getArchive(user.currentArchiveId)
+          setArchive(a)
+          return
+        }
+        const list = await listArchives()
+        if (list?.length) setArchive(list[0])
+        else setArchive(null)
+      } catch {
+        const list = await listArchives().catch(() => [])
+        if (list?.length) setArchive(list[0])
+        else setArchive(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [user.isLoggedIn, user.currentArchiveId])
 
   const astrolabe = useMemo((): AstrolabeData | null => {
-    if (!user.birthDate || !user.gender) return null
+    if (!archive?.birthDate || !archive?.gender) return null
     try {
       astro.config({ yearDivide: 'exact', horoscopeDivide: 'exact' })
-      const genderStr = user.gender === 'male' ? '男' : '女'
-      const useLunar = user.birthCalendar === 'lunar'
-      const useShichen = user.birthTimeMode === 'shichen'
+      const genderStr = archive.gender === 'male' ? '男' : '女'
+      const useLunar = archive.birthCalendar === 'lunar'
+      const useShichen = archive.birthTimeMode === 'shichen'
       let timeIndex: number
       let solarStr: string
 
-      if (useShichen && user.birthTimeBranch != null) {
-        timeIndex = Math.max(0, Math.min(12, user.birthTimeBranch))
-        const [y, m, d] = user.birthDate.slice(0, 10).split('-').map(Number)
+      if (useShichen && archive.birthTimeBranch != null) {
+        timeIndex = Math.max(0, Math.min(12, archive.birthTimeBranch))
+        const [y, m, d] = archive.birthDate.slice(0, 10).split('-').map(Number)
         solarStr = `${y}-${m}-${d}`
       } else {
-        const date = new Date(user.birthDate)
+        const date = new Date(archive.birthDate)
         let hour = date.getHours()
         const minute = date.getMinutes()
         const y = date.getFullYear()
         const m = date.getMonth() + 1
         const d = date.getDate()
         solarStr = `${y}-${m}-${d}`
-        if (user.birthLocation?.trim()) {
-          const longitude = getLongitudeByRegion(user.birthLocation)
+        if (archive.birthLocation?.trim()) {
+          const longitude = getLongitudeByRegion(archive.birthLocation)
           const offsetMin = getSolarTimeOffsetMinutes(longitude, solarStr)
           const totalMinutes = hour * 60 + minute + offsetMin
           const adjusted = ((totalMinutes % 1440) + 1440) % 1440
@@ -98,12 +131,12 @@ export default function ZiweiChartPage() {
         timeIndex = hourToTimeIndex(hour)
       }
 
-      if (useLunar && user.lunarDate?.trim()) {
+      if (useLunar && archive.lunarDate?.trim()) {
         return astro.byLunar(
-          user.lunarDate.trim(),
+          archive.lunarDate.trim(),
           timeIndex,
           genderStr,
-          user.isLeapMonth ?? false,
+          archive.isLeapMonth ?? false,
           true,
           'zh-CN'
         ) as unknown as AstrolabeData
@@ -112,9 +145,9 @@ export default function ZiweiChartPage() {
     } catch {
       return null
     }
-  }, [user.birthDate, user.gender, user.birthCalendar, user.birthTimeMode, user.birthTimeBranch, user.lunarDate, user.isLeapMonth, user.birthLocation])
+  }, [archive?.birthDate, archive?.gender, archive?.birthCalendar, archive?.birthTimeMode, archive?.birthTimeBranch, archive?.lunarDate, archive?.isLeapMonth, archive?.birthLocation])
 
-  const isEmpty = !user.birthDate || !user.gender
+  const isEmpty = !archive || !archive.birthDate || !archive.gender
 
   return (
     <main className="min-h-screen bg-background text-foreground max-w-md mx-auto flex flex-col">
@@ -131,16 +164,37 @@ export default function ZiweiChartPage() {
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-6">
-        {isEmpty ? (
+        {loading ? (
+          <div className="text-center py-12 space-y-4">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-sm text-muted-foreground">加载命盘资料中…</p>
+          </div>
+        ) : !user.isLoggedIn ? (
+          <div className="text-center py-12 space-y-4">
+            <p className="text-sm text-muted-foreground">请先登录后再查看命盘。</p>
+            <button
+              onClick={() => router.push('/')}
+              className="text-sm text-primary font-medium underline"
+            >
+              返回首页
+            </button>
+          </div>
+        ) : isEmpty ? (
           <div className="text-center py-12 space-y-4">
             <p className="text-sm text-muted-foreground">
-              请先完成出生日期、时间与地区信息，并生成一份基础人生分析后，再查看命盘。
+              暂无档案或档案未填写出生信息。请先选择档案或创建档案并填写出生日期、时间与地区。
             </p>
             <button
               onClick={() => router.push('/input')}
               className="text-sm text-primary font-medium underline"
             >
               去填写出生信息
+            </button>
+            <button
+              onClick={() => router.push('/archive')}
+              className="block mx-auto mt-2 text-sm text-muted-foreground hover:text-foreground"
+            >
+              查看档案列表
             </button>
           </div>
         ) : !astrolabe ? (

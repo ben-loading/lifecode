@@ -9,6 +9,7 @@ import {
   updateReportJob,
   getReportJobById,
   hasReportJobForArchive,
+  getRunningReportJobForArchive,
   getInvitesByInvitee,
   setInviteValid,
   getValidInviteCount,
@@ -96,6 +97,14 @@ export async function POST(request: Request) {
     }
     const user = await getUserById(userId)
     if (!user) return NextResponse.json({ error: '用户不存在' }, { status: 404 })
+
+    const runningJob = await getRunningReportJobForArchive(archiveId)
+    if (runningJob) {
+      return NextResponse.json(
+        { error: '该档案已有生成任务进行中，请稍后再试', code: 'JOB_ALREADY_RUNNING' },
+        { status: 409 }
+      )
+    }
 
     if (isRetry) {
       const hasJob = await hasReportJobForArchive(archiveId)

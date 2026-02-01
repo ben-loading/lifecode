@@ -122,6 +122,16 @@ export async function getMainReport(archiveId: string): Promise<ApiMainReport | 
   return request<ApiMainReport | null>(`/report/${archiveId}`).catch(() => null)
 }
 
+/** 按档案查状态：有结果直接展示，有进行中任务则走分析动画 */
+export async function getReportArchiveStatus(archiveId: string): Promise<{
+  report: ApiMainReport | null
+  runningJob: ApiReportJob | null
+}> {
+  return request<{ report: ApiMainReport | null; runningJob: ApiReportJob | null }>(
+    `/report/archive/${archiveId}/status`
+  ).catch(() => ({ report: null, runningJob: null }))
+}
+
 export async function getBalance(): Promise<{ balance: number }> {
   return request<{ balance: number }>('/energy/balance')
 }
