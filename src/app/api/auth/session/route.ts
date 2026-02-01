@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserById, createUser, createTransaction } from '@/lib/db'
-import { unauthorized, serverError } from '@/lib/api-utils'
+import { serverError } from '@/lib/api-utils'
 
 const NEW_USER_BALANCE = 20
 
@@ -14,7 +14,9 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { data: { user: authUser } } = await supabase.auth.getUser()
 
-    if (!authUser) return unauthorized()
+    if (!authUser) {
+      return NextResponse.json({ user: null })
+    }
 
     let appUser = await getUserById(authUser.id)
     if (!appUser) {
