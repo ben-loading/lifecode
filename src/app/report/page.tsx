@@ -24,7 +24,7 @@ import { useAppContext } from '@/lib/context'
 import { useState, useEffect } from 'react'
 import { SideMenu } from '@/components/side-menu'
 import { ShareDialog } from '@/components/share-dialog'
-import { getReportJobStatus, getMainReport, getReportArchiveStatus, createReportJob, createReportJobRetry } from '@/lib/api-client'
+import { getReportJobStatus, getMainReport, getReportArchiveStatus, createReportJob, createReportJobRetry, getArchive } from '@/lib/api-client'
 import type { ApiMainReport } from '@/lib/types/api'
 
 // 分析步骤：与后端流程对应（时辰→八字→排盘→先天→大限/流年→输出），前端用计时驱动，不依赖轮询步进
@@ -81,6 +81,7 @@ function ReportPageContent() {
   )
   const [reportFetchedForArchiveId, setReportFetchedForArchiveId] = useState<string | null>(null)
   const [isRegenerating, setIsRegenerating] = useState(false)
+  const [archiveDisplayName, setArchiveDisplayName] = useState<string | null>(null)
   const showEmptyState = !hasJobFromUrl && !mainReport && !effectiveArchiveId
   const loadingReportByArchive = !hasJobFromUrl && Boolean(effectiveArchiveId) && reportFetchedForArchiveId !== effectiveArchiveId
   const noReportForCurrentArchive = !hasJobFromUrl && Boolean(effectiveArchiveId) && reportFetchedForArchiveId === effectiveArchiveId && !mainReport
@@ -177,6 +178,23 @@ function ReportPageContent() {
       setReportFetchedForArchiveId(effectiveArchiveId)
     })
   }, [jobId, effectiveArchiveId, router])
+
+  // 根据当前档案 ID 拉取档案名，刷新后不再依赖 user.archiveName，避免显示占位「KC小可爱」
+  useEffect(() => {
+    if (!effectiveArchiveId) {
+      setArchiveDisplayName(null)
+      return
+    }
+    let cancelled = false
+    getArchive(effectiveArchiveId)
+      .then((archive) => {
+        if (!cancelled) setArchiveDisplayName(archive.name ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setArchiveDisplayName(null)
+      })
+    return () => { cancelled = true }
+  }, [effectiveArchiveId])
 
   // 人生剧本数据（优先使用 API 主报告）
   const lifeScript = {
@@ -376,7 +394,7 @@ function ReportPageContent() {
         <div className="px-5 py-8 min-h-[calc(100vh-130px)] flex flex-col">
           {/* User Info Section - Top Position */}
           <section className="text-center space-y-3 mb-8">
-            <h1 className="text-2xl tracking-[0.2em] font-semibold">{user.archiveName || 'KC小可爱'}</h1>
+            <h1 className="text-2xl tracking-[0.2em] font-semibold">{(archiveDisplayName ?? user.archiveName) || '档案'}</h1>
             <p className="text-xs text-muted-foreground">正在解码中...</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
               解码不会因关闭页面而中断，完成后将通过邮箱通知
@@ -568,8 +586,8 @@ function ReportPageContent() {
             <>
           {/* User Info Section */}
           <section className="text-center space-y-3">
-            <h1 className="text-2xl tracking-[0.2em] font-semibold">{user.archiveName || 'KC小可爱'}</h1>
-            <p className="text-sm text-muted-foreground tracking-wide">{mainReport?.baziDisplay ?? '己已 辛未 乙未 癸未'}</p>
+            <h1 className="text-2xl tracking-[0.2em] font-semibold">{(archiveDisplayName ?? user.archiveName) || '档案'}</h1>
+            <p className="text-sm text-muted-foreground tracking-wide">{mainReport?.baziDisplay ?? '—'}</p>
           </section>
 
           <Separator className="bg-border" />
@@ -934,7 +952,7 @@ function ReportPageContent() {
       <SideMenu
         isOpen={showMenu}
         onClose={() => setShowMenu(false)}
-        archiveName={user.archiveName || 'KC小可爱'}
+        archiveName={(archiveDisplayName ?? user.archiveName) || '档案'}
         userEmail={user.email || 'luo luo@gmail.com'}
       />
 
@@ -942,7 +960,7 @@ function ReportPageContent() {
       <ShareDialog
         isOpen={showShareDialog}
         onClose={() => setShowShareDialog(false)}
-        archiveName={user.archiveName || 'KC小可爱'}
+        archiveName={(archiveDisplayName ?? user.archiveName) || '档案'}
         lifeScriptTitle={lifeScript.title}
         coreAbility={coreAbility}
       />
