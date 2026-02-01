@@ -105,31 +105,37 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-sm mx-auto">
+      <DialogContent
+        className="
+          w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] sm:w-auto sm:max-w-sm
+          overflow-hidden p-4 sm:p-6 mx-auto
+"
+      >
         <DialogTitle className="sr-only">登录 / 注册</DialogTitle>
-        <div className="space-y-6 py-4">
-          <div className="text-center">
-            <h2 className="text-lg font-medium text-foreground">登录 / 注册</h2>
-            <p className="text-xs text-muted-foreground mt-2">
+        <div className="space-y-5 py-2 min-w-0 overflow-hidden">
+          <div className="text-center min-w-0">
+            <h2 className="text-lg font-medium text-foreground break-words">登录 / 注册</h2>
+            <p className="text-xs text-muted-foreground mt-2 break-words px-1">
               使用邮箱验证码登录，验证码将发送至您的邮箱
             </p>
           </div>
 
-          <div className="space-y-4">
-            <div>
+          <div className="space-y-4 min-w-0">
+            <div className="min-w-0">
               <label className="text-xs text-muted-foreground mb-2 block tracking-wider">邮箱</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full min-w-0 px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary box-border"
               />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <label className="text-xs text-muted-foreground mb-2 block tracking-wider">验证码（6位数字）</label>
-              <div className="flex gap-2 min-w-0">
+              {/* 移动端竖排、桌面端横排，避免「发送」被裁切 */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 min-w-0">
                 <input
                   type="text"
                   inputMode="numeric"
@@ -139,22 +145,22 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
                   onChange={(e) => setCode(/^\d*$/.test(e.target.value) ? e.target.value : code)}
                   placeholder={codeSent ? '请输入6位验证码' : '请先发送验证码'}
                   disabled={!codeSent}
-                  className="min-w-0 flex-1 px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full min-w-0 flex-1 px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed box-border"
                 />
                 <button
                   onClick={handleSendCode}
                   disabled={!email || countdown > 0}
-                  className="shrink-0 px-4 py-2 border border-border rounded-lg text-xs font-medium hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto sm:shrink-0 px-4 py-2.5 border border-border rounded-lg text-xs font-medium hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {countdown > 0 ? `${countdown}s` : codeSent ? '重新发送' : '发送'}
                 </button>
               </div>
             </div>
           </div>
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {error && <p className="text-xs text-destructive break-words">{error}</p>}
           <Button
             onClick={handleSubmit}
-            className="w-full h-11 rounded-lg"
+            className="w-full min-w-0 h-11 rounded-lg"
             disabled={!email || code.trim().length !== 6 || loading}
           >
             {loading ? '登录中...' : '登 录'}
