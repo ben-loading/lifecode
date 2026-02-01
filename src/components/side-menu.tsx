@@ -23,12 +23,17 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
   const [showTopUp, setShowTopUp] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [archiveList, setArchiveList] = useState<ApiArchive[]>([])
+  const [archiveListLoading, setArchiveListLoading] = useState(false)
 
   useEffect(() => {
     if (isOpen && userEmail) {
+      setArchiveListLoading(true)
       listArchives()
         .then((list) => setArchiveList(list ?? []))
         .catch(() => setArchiveList([]))
+        .finally(() => setArchiveListLoading(false))
+    } else {
+      setArchiveListLoading(false)
     }
   }, [isOpen, userEmail])
 
@@ -102,7 +107,12 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
 
         {/* Archives List - Scrollable */}
         <div className="flex-1 overflow-y-auto px-5 space-y-3">
-          {archiveList.length === 0 ? (
+          {archiveListLoading ? (
+            <div className="px-3 py-4 text-center">
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">加载档案列表中…</p>
+            </div>
+          ) : archiveList.length === 0 ? (
             <div className="px-3 py-2 text-xs text-muted-foreground rounded border border-dashed border-border/60">
               暂无档案，创建新档案后将在此展示
             </div>

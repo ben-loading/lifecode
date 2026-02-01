@@ -54,6 +54,10 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
 
   const handleSubmit = async () => {
     if (!email?.trim() || !code?.trim()) return
+    if (code.trim().length !== 6) {
+      setError('请输入6位数字验证码')
+      return
+    }
     setError('')
     setLoading(true)
     try {
@@ -124,13 +128,16 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-2 block tracking-wider">验证码</label>
+              <label className="text-xs text-muted-foreground mb-2 block tracking-wider">验证码（6位数字）</label>
               <div className="flex gap-2">
                 <input
                   type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
                   value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  placeholder={codeSent ? '输入邮箱收到的验证码' : '请先发送验证码'}
+                  onChange={(e) => setCode(/^\d*$/.test(e.target.value) ? e.target.value : code)}
+                  placeholder={codeSent ? '请输入6位验证码' : '请先发送验证码'}
                   disabled={!codeSent}
                   className="flex-1 px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 />
@@ -148,7 +155,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
           <Button
             onClick={handleSubmit}
             className="w-full h-11 rounded-lg"
-            disabled={!email || !code || loading}
+            disabled={!email || code.trim().length !== 6 || loading}
           >
             {loading ? '登录中...' : '登 录'}
           </Button>

@@ -93,9 +93,9 @@ function ReportPageContent() {
     }
   }, [hasJobFromUrl, jobId, mainReport, generationError])
 
-  // 前端计时驱动步骤：总时长约 70s 平摊至前 5 步，内容生成（50s+）不集中压在最后一步
+  // 前端计时驱动步骤：总时长约 70s 平摊至前 5 步，内容生成（50s+）不集中压在最后一步；isAnalyzing 即跑（含点击重新生成后尚未带 jobId 时）
   useEffect(() => {
-    if (!hasJobFromUrl || !isAnalyzing) return
+    if (!isAnalyzing) return
     const stepDurations = [10000, 10000, 12000, 13000, 25000] // 前 5 步合计 ~70s（ms），第 6 步等接口完成即跳转
     let stepIndex = 0
     const timeouts: ReturnType<typeof setTimeout>[] = []
@@ -113,7 +113,7 @@ function ReportPageContent() {
     }
     scheduleNext()
     return () => timeouts.forEach(clearTimeout)
-  }, [hasJobFromUrl, isAnalyzing])
+  }, [isAnalyzing])
 
   // 仅轮询任务是否完成（不依赖后端步进），完成后拉取主报告
   useEffect(() => {
@@ -151,8 +151,11 @@ function ReportPageContent() {
   }, [jobId, archiveId, setUser, setHasCompletedMainReport])
 
   // 无 jobId 时按档案查状态：有结果直接展示，有进行中任务则跳转走分析动画，否则显示生成失败
+  // 进入时先清空上一档案的报告/错误，避免未加载前显示模版或错误档案
   useEffect(() => {
     if (jobId || !effectiveArchiveId) return
+    setMainReport(null)
+    setGenerationError(null)
     setReportFetchedForArchiveId(null)
     getReportArchiveStatus(effectiveArchiveId).then(({ report, runningJob }) => {
       if (report) {
@@ -366,77 +369,6 @@ function ReportPageContent() {
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-muted-foreground">加载报告中...</p>
         </div>
-      ) : noReportForCurrentArchive ? (
-        /* 获取不到报告：显示生成失败，提供重新生成（不扣能量） */
-        <div className="px-5 py-12 flex-1 flex flex-col items-center justify-center text-center space-y-6">
-          <p className="text-sm font-medium text-foreground">生成失败</p>
-          <p className="text-xs text-muted-foreground max-w-xs">
-            报告未能生成，可免费重新生成，不会再次扣除能量
-          </p>
-          {retryError && (
-            <p className="text-xs text-destructive max-w-xs">{retryError}</p>
-          )}
-          <div className="flex flex-col gap-3">
-            <Button
-              disabled={isRegenerating}
-              onClick={async () => {
-                if (!effectiveArchiveId || isRegenerating) return
-                setRetryError(null)
-                setMainReport(null)
-                setGenerationError(null)
-                setIsAnalyzing(true)
-                setCurrentStep(0)
-                setIsRegenerating(true)
-                try {
-                  const { jobId: newJobId } = await createReportJobRetry(effectiveArchiveId)
-                  router.replace(`/report?jobId=${newJobId}&archiveId=${effectiveArchiveId}`)
-                } catch (err: unknown) {
-                  const msg = err instanceof Error ? err.message : String(err)
-                  if (msg.includes('请先使用') || msg.includes('NEED_FIRST_GENERATE')) {
-                    setRetryError('请先使用「开启解码」生成报告')
-                  } else if (msg.includes('已有生成任务进行中') || msg.includes('JOB_ALREADY_RUNNING')) {
-                    setRetryError('该档案已有生成任务进行中，请稍后再试')
-                  } else {
-                    setRetryError('重新生成失败，请稍后再试')
-                  }
-                  setIsAnalyzing(false)
-                } finally {
-                  setIsRegenerating(false)
-                }
-              }}
-              className="rounded-full"
-            >
-              {isRegenerating ? '提交中…' : '重新生成'}
-            </Button>
-            {retryError?.includes('请先使用') && (
-              <Button
-                variant="outline"
-                disabled={isRegenerating}
-                onClick={async () => {
-                  if (!effectiveArchiveId || isRegenerating) return
-                  setRetryError(null)
-                  setMainReport(null)
-                  setGenerationError(null)
-                  setIsAnalyzing(true)
-                  setCurrentStep(0)
-                  setIsRegenerating(true)
-                  try {
-                    const { jobId: newJobId } = await createReportJob({ archiveId: effectiveArchiveId })
-                    router.replace(`/report?jobId=${newJobId}&archiveId=${effectiveArchiveId}`)
-                  } catch {
-                    setRetryError('发起失败，请稍后再试')
-                    setIsAnalyzing(false)
-                  } finally {
-                    setIsRegenerating(false)
-                  }
-                }}
-                className="rounded-full"
-              >
-                开启解码
-              </Button>
-            )}
-          </div>
-        </div>
       ) : isAnalyzing ? (
         /* Analyzing State */
         <div className="px-5 py-8 min-h-[calc(100vh-130px)] flex flex-col">
@@ -521,46 +453,108 @@ function ReportPageContent() {
             </p>
           </div>
         </div>
+      ) : noReportForCurrentArchive ? (
+        /* 获取不到报告：显示生成失败，点击重新生成后直接进入上方分析过渡动画 */
+        <div className="px-5 py-12 flex-1 flex flex-col items-center justify-center text-center space-y-6">
+          <p className="text-sm font-medium text-foreground">生成失败</p>
+          <p className="text-xs text-muted-foreground max-w-xs">
+            报告未能生成，可免费重新生成，不会再次扣除能量
+          </p>
+          {retryError && (
+            <p className="text-xs text-destructive max-w-xs">{retryError}</p>
+          )}
+          {retryError?.includes('请先使用') ? (
+            <button
+              type="button"
+              onClick={() => router.push('/input')}
+              className="text-xs text-primary underline hover:no-underline"
+            >
+              去填写出生信息
+            </button>
+          ) : (
+            <Button
+              disabled={isRegenerating}
+              onClick={async () => {
+                if (!effectiveArchiveId || isRegenerating) return
+                setRetryError(null)
+                setMainReport(null)
+                setGenerationError(null)
+                setIsAnalyzing(true)
+                setCurrentStep(0)
+                setIsRegenerating(true)
+                try {
+                  const { jobId: newJobId } = await createReportJobRetry(effectiveArchiveId)
+                  router.replace(`/report?jobId=${newJobId}&archiveId=${effectiveArchiveId}`)
+                } catch (err: unknown) {
+                  const msg = err instanceof Error ? err.message : String(err)
+                  if (msg.includes('请先使用') || msg.includes('NEED_FIRST_GENERATE')) {
+                    setRetryError('请先使用「开启解码」生成报告')
+                  } else if (msg.includes('已有生成任务进行中') || msg.includes('JOB_ALREADY_RUNNING')) {
+                    setRetryError('该档案已有生成任务进行中，请稍后再试')
+                  } else {
+                    setRetryError('重新生成失败，请稍后再试')
+                  }
+                  setIsAnalyzing(false)
+                } finally {
+                  setIsRegenerating(false)
+                }
+              }}
+              className="rounded-full"
+            >
+              {isRegenerating ? '提交中…' : '重新生成'}
+            </Button>
+          )}
+        </div>
       ) : (
         /* Report State */
         <div className="px-5 py-8 space-y-8 flex flex-col">
           {generationError ? (
-            /* 生成失败：显示错误与重新生成（不扣能量） */
+            /* 生成失败：点击重新生成后直接进入分析过渡动画，不展示开启解码大按钮 */
             <section className="space-y-6 text-center py-12">
               <p className="text-sm font-medium text-foreground">生成失败</p>
               <p className="text-xs text-muted-foreground max-w-xs mx-auto whitespace-pre-wrap">{generationError}</p>
               <p className="text-xs text-muted-foreground max-w-xs mx-auto">可免费重新生成，不会再次扣除能量</p>
-              <Button
-                disabled={isRegenerating}
-                onClick={async () => {
-                  const aid = effectiveArchiveId ?? archiveId
-                  if (!aid || isRegenerating) return
-                  setGenerationError(null)
-                  setMainReport(null)
-                  setIsAnalyzing(true)
-                  setCurrentStep(0)
-                  setIsRegenerating(true)
-                  try {
-                    const { jobId: newJobId } = await createReportJobRetry(aid)
-                    router.replace(`/report?jobId=${newJobId}&archiveId=${aid}`)
-                  } catch (err: unknown) {
-                    const msg = err instanceof Error ? err.message : String(err)
-                    if (msg.includes('请先使用') || msg.includes('NEED_FIRST_GENERATE')) {
-                      setGenerationError('请先使用「开启解码」生成报告')
-                    } else if (msg.includes('已有生成任务进行中') || msg.includes('JOB_ALREADY_RUNNING')) {
-                      setGenerationError('该档案已有生成任务进行中，请稍后再试')
-                    } else {
-                      setGenerationError('重新生成失败，请稍后再试')
+              {generationError.includes('请先使用') ? (
+                <button
+                  type="button"
+                  onClick={() => router.push('/input')}
+                  className="text-xs text-primary underline hover:no-underline"
+                >
+                  去填写出生信息
+                </button>
+              ) : (
+                <Button
+                  disabled={isRegenerating}
+                  onClick={async () => {
+                    const aid = effectiveArchiveId ?? archiveId
+                    if (!aid || isRegenerating) return
+                    setGenerationError(null)
+                    setMainReport(null)
+                    setIsAnalyzing(true)
+                    setCurrentStep(0)
+                    setIsRegenerating(true)
+                    try {
+                      const { jobId: newJobId } = await createReportJobRetry(aid)
+                      router.replace(`/report?jobId=${newJobId}&archiveId=${aid}`)
+                    } catch (err: unknown) {
+                      const msg = err instanceof Error ? err.message : String(err)
+                      if (msg.includes('请先使用') || msg.includes('NEED_FIRST_GENERATE')) {
+                        setGenerationError('请先使用「开启解码」生成报告')
+                      } else if (msg.includes('已有生成任务进行中') || msg.includes('JOB_ALREADY_RUNNING')) {
+                        setGenerationError('该档案已有生成任务进行中，请稍后再试')
+                      } else {
+                        setGenerationError('重新生成失败，请稍后再试')
+                      }
+                      setIsAnalyzing(false)
+                    } finally {
+                      setIsRegenerating(false)
                     }
-                    setIsAnalyzing(false)
-                  } finally {
-                    setIsRegenerating(false)
-                  }
-                }}
-                className="rounded-full"
-              >
-                {isRegenerating ? '提交中…' : '重新生成'}
-              </Button>
+                  }}
+                  className="rounded-full"
+                >
+                  {isRegenerating ? '提交中…' : '重新生成'}
+                </Button>
+              )}
             </section>
           ) : (
             <>

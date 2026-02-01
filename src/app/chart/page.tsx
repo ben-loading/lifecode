@@ -71,12 +71,14 @@ export default function ZiweiChartPage() {
   const [loading, setLoading] = useState(true)
 
   // 命盘资料从当前档案（数据库）拉取，刷新/二次登录后仍能正确展示
+  // 切换档案或重新加载时先清空 archive，避免未加载前显示上一档案的命盘
   useEffect(() => {
     if (!user.isLoggedIn) {
       setArchive(null)
       setLoading(false)
       return
     }
+    setArchive(null)
     setLoading(true)
     const load = async () => {
       try {
