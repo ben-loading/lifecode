@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, LogOut, FileText } from 'lucide-react'
+
+const ARCHIVE_LIST_CACHE_MS = 60 * 1000 // 档案列表缓存 60 秒，减少侧栏重复请求
 import { useRouter } from 'next/navigation'
 import { useAppContext } from '@/lib/context'
 import { clearToken, listArchives } from '@/lib/api-client'
@@ -24,27 +26,34 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
   const [showHistory, setShowHistory] = useState(false)
   const [archiveList, setArchiveList] = useState<ApiArchive[]>([])
   const [archiveListLoading, setArchiveListLoading] = useState(false)
+  const lastArchiveListFetchAt = useRef(0)
 
   useEffect(() => {
-    if (isOpen && userEmail) {
-      setArchiveListLoading(true)
-      listArchives()
-        .then((list) => setArchiveList(list ?? []))
-        .catch(() => setArchiveList([]))
-        .finally(() => setArchiveListLoading(false))
-    } else {
+    if (!isOpen || !userEmail) {
       setArchiveListLoading(false)
+      return
     }
+    const now = Date.now()
+    if (now - lastArchiveListFetchAt.current < ARCHIVE_LIST_CACHE_MS) {
+      return
+    }
+    lastArchiveListFetchAt.current = now
+    setArchiveListLoading(true)
+    listArchives()
+      .then((list) => setArchiveList(list ?? []))
+      .catch(() => setArchiveList([]))
+      .finally(() => setArchiveListLoading(false))
   }, [isOpen, userEmail])
 
   const handleCreateNewArchive = () => {
-    // 仅清空当前档案选择，保留登录态与账号信息；旧档案仍在后端，侧栏列表会展示
+    lastArchiveListFetchAt.current = 0
     setUser((prev) => ({
       ...prev,
       archiveName: undefined,
       currentArchiveId: undefined,
       archiveNote: undefined,
     }))
+    // 仅清空当前档案选择，保留登录态与账号信息；旧档案仍在后端，下次打开侧栏会重新拉取列表
     onClose()
     router.push('/')
   }

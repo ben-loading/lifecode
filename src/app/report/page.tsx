@@ -84,6 +84,8 @@ function ReportPageContent() {
   const showEmptyState = !hasJobFromUrl && !mainReport && !effectiveArchiveId
   const loadingReportByArchive = !hasJobFromUrl && Boolean(effectiveArchiveId) && reportFetchedForArchiveId !== effectiveArchiveId
   const noReportForCurrentArchive = !hasJobFromUrl && Boolean(effectiveArchiveId) && reportFetchedForArchiveId === effectiveArchiveId && !mainReport
+  // 仅当当前 mainReport 属于当前档案时展示报告内容，避免刷新或切换档案时短暂显示上一档案/默认案例
+  const reportBelongsToCurrentArchive = mainReport && (!effectiveArchiveId || mainReport.archiveId === effectiveArchiveId)
 
   // URL 有 jobId+archiveId 时同步为“分析中”，避免点击重新生成/开启解码后无过渡动画
   useEffect(() => {
@@ -452,6 +454,12 @@ function ReportPageContent() {
               {isAnalyzing && currentStep === 5 ? '正在生成命理解读…' : '分析进度'}
             </p>
           </div>
+        </div>
+      ) : !reportBelongsToCurrentArchive ? (
+        /* 报告未就绪或属于其他档案：避免刷新/切换时显示默认案例内容 */
+        <div className="px-5 py-12 flex-1 flex flex-col items-center justify-center text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">加载报告中...</p>
         </div>
       ) : noReportForCurrentArchive ? (
         /* 获取不到报告：显示生成失败，点击重新生成后直接进入上方分析过渡动画 */
