@@ -119,21 +119,33 @@ function ReportPageContent() {
     return () => timeouts.forEach(clearTimeout)
   }, [isAnalyzing])
 
-  // 仅轮询任务是否完成（不依赖后端步进），完成后拉取主报告
+  // 仅轮询任务是否完成（不依赖后端步进），完成后拉取主报告；若任务完成但数据库无报告或轮询超时，展示错误并允许重新生成
+  const POLL_TIMEOUT_MS = 5 * 60 * 1000 // 5 分钟超时
   useEffect(() => {
     if (!jobId || !archiveId) return
     let cancelled = false
+    const startedAt = Date.now()
     const poll = async () => {
       try {
+        if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+          setGenerationError('报告生成超时，请重新生成')
+          setIsAnalyzing(false)
+          return
+        }
         const job = await getReportJobStatus(jobId)
         if (cancelled) return
         if (job.status === 'completed') {
           setGenerationError(null)
           const report = await getMainReport(archiveId)
           if (cancelled) return
-          if (report) setMainReport(report)
-          setUser((prev) => ({ ...prev, currentArchiveId: archiveId }))
-          setHasCompletedMainReport(true)
+          if (report) {
+            setMainReport(report)
+            setUser((prev) => ({ ...prev, currentArchiveId: archiveId }))
+            setHasCompletedMainReport(true)
+          } else {
+            // 任务标记完成但数据库无报告（生成不稳定/未写入），展示错误并允许重新生成
+            setGenerationError('报告数据未能加载，请重新生成')
+          }
           setIsAnalyzing(false)
           setCurrentStep(analysisStepsConfig.length)
           return
@@ -474,8 +486,8 @@ function ReportPageContent() {
             </p>
           </div>
         </div>
-      ) : !reportBelongsToCurrentArchive ? (
-        /* 报告未就绪或属于其他档案：避免刷新/切换时显示默认案例内容 */
+      ) : !reportBelongsToCurrentArchive && !generationError ? (
+        /* 报告未就绪或属于其他档案：避免刷新/切换时显示默认案例内容；若有 generationError（完成但无报告/超时）则走下方 Report State 展示重新生成 */
         <div className="px-5 py-12 flex-1 flex flex-col items-center justify-center text-center space-y-4">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-muted-foreground">加载报告中...</p>
