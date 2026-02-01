@@ -243,6 +243,33 @@ export async function updateReportJob(jobId: string, updates: Partial<{ status: 
   await client.from('ReportJob').update({ ...updates, updatedAt: new Date().toISOString() }).eq('id', jobId)
 }
 
+/**
+ * 原子领取下一个 status='running' 的任务，并改为 'processing'。
+ * 供外部 Worker 轮询调用，保证多 Worker 下不重复领取。
+ */
+export async function getNextRunningReportJobAndClaim(): Promise<ApiReportJob | null> {
+  const client = getClient()
+  const { data: jobs, error: listErr } = await client
+    .from('ReportJob')
+    .select('*')
+    .eq('status', 'running')
+    .order('createdAt', { ascending: true })
+    .limit(1)
+  if (listErr || !jobs?.length) return null
+  const row = jobs[0] as Record<string, unknown>
+  const jobId = row.id as string
+  const now = new Date().toISOString()
+  const { data: updated, error: updateErr } = await client
+    .from('ReportJob')
+    .update({ status: 'processing', updatedAt: now })
+    .eq('id', jobId)
+    .eq('status', 'running')
+    .select()
+    .single()
+  if (updateErr || !updated) return null
+  return rowToReportJob(updated)
+}
+
 // ==================== Transaction ====================
 
 export interface ServerTransaction {

@@ -153,9 +153,12 @@ vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY
 vercel env add SUPABASE_SERVICE_ROLE_KEY
 vercel env add DATABASE_URL
 
-# LLM 配置
+# LLM 配置（用于前端预检；实际生成在 Worker 环境）
 vercel env add DEEPSEEK_API_KEY
 vercel env add LLM_PROVIDER
+
+# 主报告 Worker 鉴权（仅在使用外部 Worker 时配置）
+# vercel env add REPORT_WORKER_SECRET
 ```
 
 **环境变量值**（从 Supabase Dashboard、.env.local 等处获取，**切勿将真实密钥写入文档或提交到仓库**）：
@@ -168,10 +171,12 @@ vercel env add LLM_PROVIDER
 | DATABASE_URL | PostgreSQL 连接串（Supabase → Settings → Database） |
 | DEEPSEEK_API_KEY | DeepSeek API Key（https://platform.deepseek.com） |
 | LLM_PROVIDER | `deepseek` |
+| REPORT_WORKER_SECRET | 仅在使用外部 Worker 时配置，与 Worker 环境中的值一致 |
 
 **主报告生成依赖**：线上环境要能生成主报告，必须在 Vercel 中配置 **DEEPSEEK_API_KEY** 和 **LLM_PROVIDER**（值为 `deepseek`），并重新部署。未配置时点击「开启解码」会返回 503 并提示未配置 LLM。  
-**超时说明**：主报告生成约需 50 秒以上，Vercel Hobby 计划函数超时 10 秒，可能导致任务被中断；Pro 计划 60 秒。  
-**先排查再决定是否升级 Pro**：部署后在 Vercel → Logs 中搜索 `[report-dbg]`。若能看到「后台任务已启动」但没有任何「tick step=1」或「开始调用 LLM」→ 多半是返回响应后后台被终止（需改为同请求内 await 或升级 Pro）；若能看到「Generation failed」→ 是生成失败，看后面的错误信息排查 LLM/解析/DB。
+**超时与两种方案**：主报告 LLM 约 100 秒。  
+- **推荐（简单）**：Vercel 开启 **Fluid Compute**（默认开启）时，函数最长可跑 300 秒；或使用 **Pro 计划** 可设 `maxDuration` 最高 300 秒。当前接口已设 `maxDuration = 300`，**同请求内完成生成，无需部署 Worker**。  
+- **可选**：若你关闭了 Fluid Compute 且为 Hobby 计划（函数最多 60s），可改用 **外部 Worker** 方案，见下文「主报告 Worker 部署（可选）」。
 
 ### 4. 部署项目
 ```bash
@@ -197,6 +202,87 @@ vercel --prod
 
 ---
 
+### 主报告 Worker 部署（可选，仅在不满足 300s 时限时使用）
+
+若 Vercel 未开启 Fluid Compute 且为 Hobby 计划（函数最多 60s），主报告可能超时，可改用 **独立 Worker 进程** 轮询领任务、本地执行生成并回写状态。  
+若已开启 Fluid Compute（默认）或使用 Pro 并设 `maxDuration = 300`，**无需部署 Worker**。
+
+1. **在 Vercel 中配置**  
+   - 环境变量 **REPORT_WORKER_SECRET**（随机字符串，与 Worker 环境中的值一致），用于保护 `GET /api/report/next-job` 和 `PATCH /api/report/job/[jobId]`。
+
+2. **部署 Worker 进程**（任选其一）  
+   - **Railway**：见下文「Railway 部署主报告 Worker」分步说明。  
+   - **Render / Fly.io**：新建服务，从本仓库拉取代码，启动命令：`npx tsx scripts/worker-report.ts`，并配置下方环境变量。  
+   - **自有 VPS**：在项目根目录执行 `npx tsx scripts/worker-report.ts`（或 `node dist/worker-report.js` 若先构建），用 systemd / pm2 等保活。
+
+3. **Worker 环境变量**（与 .env.local 中 Supabase、LLM 一致，另加两项）：
+
+   | 变量名 | 说明 |
+   |--------|-----|
+   | API_BASE_URL | 前端/API 域名，如 `https://lifecode-xxx.vercel.app`（末尾不要 `/`) |
+   | REPORT_WORKER_SECRET | 与 Vercel 中 REPORT_WORKER_SECRET 相同 |
+   | NEXT_PUBLIC_SUPABASE_URL | Supabase 项目 URL |
+   | SUPABASE_SERVICE_ROLE_KEY | Supabase service_role key |
+   | DEEPSEEK_API_KEY（或 OPENAI_API_KEY） | LLM API Key |
+   | LLM_PROVIDER | `deepseek`（或 `openai`） |
+   | REPORT_WORKER_POLL_MS | 可选，轮询间隔毫秒，默认 10000 |
+
+4. **验证**  
+   - 用户在前端点击「开启解码」后，应得到 `jobId` 并进入报告页轮询状态。  
+   - Worker 日志中应出现 `[worker] claimed job ...`、`[worker] completed job ...`。  
+   - 若长时间无任务被领取，检查 Vercel 与 Worker 的 REPORT_WORKER_SECRET 是否一致、API_BASE_URL 是否可访问。
+
+---
+
+### Railway 部署主报告 Worker（分步）
+
+1. **登录 Railway**  
+   打开 [railway.app](https://railway.app)，用 GitHub 登录。
+
+2. **新建项目并接入仓库**  
+   - 点击 **New Project**。  
+   - 选 **Deploy from GitHub repo**，授权后选择你的 **lifecode** 仓库（与 Vercel 部署的是同一仓库即可）。  
+   - Railway 会为该仓库创建一个 **Service**，默认可能是 Next.js 的 `npm run build` + `npm start`。
+
+3. **改成 Worker 服务（不跑 Next）**  
+   - 进入该 Service → **Settings** → **Deploy**。  
+   - **Build Command**：可留空或填 `npm install`（只装依赖，不构建 Next）。  
+   - **Start Command**：改为  
+     ```bash
+     npx tsx scripts/worker-report.ts
+     ```  
+   - **Root Directory**：若仓库根目录就是 lifecode 项目，留空；若项目在子目录，填该子目录（如 `lifecode`）。  
+   - 保存。
+
+4. **配置环境变量**  
+   - 同一 Service 里打开 **Variables**。  
+   - 点击 **+ New Variable** 或 **RAW Editor**，添加（值从 Vercel / Supabase / .env.local 复制，不要写进文档）：
+
+   | 变量名 | 必填 | 说明 |
+   |--------|------|-----|
+   | `API_BASE_URL` | 是 | Vercel 站点地址，如 `https://lifecode-xxx.vercel.app`（末尾不要 `/`) |
+   | `REPORT_WORKER_SECRET` | 是 | 与 Vercel 里 `REPORT_WORKER_SECRET` **完全一致** |
+   | `NEXT_PUBLIC_SUPABASE_URL` | 是 | Supabase 项目 URL |
+   | `SUPABASE_SERVICE_ROLE_KEY` | 是 | Supabase service_role key |
+   | `DEEPSEEK_API_KEY` | 是* | DeepSeek API Key（用 DeepSeek 时必填） |
+   | `LLM_PROVIDER` | 是 | `deepseek` 或 `openai` |
+   | `OPENAI_API_KEY` | 否* | 若 `LLM_PROVIDER=openai` 则必填 |
+   | `REPORT_WORKER_POLL_MS` | 否 | 轮询间隔毫秒，默认 10000 |
+
+   \* 二选一：DeepSeek 填 `DEEPSEEK_API_KEY` + `LLM_PROVIDER=deepseek`；OpenAI 填 `OPENAI_API_KEY` + `LLM_PROVIDER=openai`。
+
+5. **部署与看日志**  
+   - **Deployments** 里会触发一次部署；若未自动部署，可点 **Deploy**。  
+   - 部署完成后打开 **Deployments** → 最新部署 → **View Logs**。  
+   - 正常应看到：`[worker] started, polling ... every 10000 ms`；有用户发起主报告时会看到 `[worker] claimed job ...`、`[worker] completed job ...`。
+
+6. **常见问题**  
+   - **启动报错缺少模块**：确认 Start Command 是 `npx tsx scripts/worker-report.ts`，且仓库根目录有 `package.json` 和 `scripts/worker-report.ts`。  
+   - **一直不领任务**：检查 `API_BASE_URL` 是否能在公网访问、`REPORT_WORKER_SECRET` 与 Vercel 是否一字不差。  
+   - **生成失败**：看日志里的 `[worker] job failed` 后面错误信息，多半是 LLM Key 或 Supabase 配置问题。
+
+---
+
 ## 三、本地开发
 
 ### 启动开发服务器
@@ -210,6 +296,15 @@ npm run dev
 ```bash
 npx tsx scripts/simulate-report-generation.ts
 ```
+
+### 本地运行主报告 Worker（可选）
+若希望本地 Next 只创建任务、由本机 Worker 执行 LLM 生成，可在项目根目录另开终端：
+
+```bash
+API_BASE_URL=http://localhost:3000 REPORT_WORKER_SECRET=与.env.local中一致 npx tsx scripts/worker-report.ts
+```
+
+需在 .env.local 中配置 REPORT_WORKER_SECRET，且 Vercel/本地 Next 的 `/api/report/next-job` 使用同一密钥鉴权。
 
 ---
 

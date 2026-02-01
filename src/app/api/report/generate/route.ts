@@ -15,8 +15,25 @@ import {
 import { parseJsonBody, badRequest, unauthorized } from '@/lib/api-utils'
 import { MAIN_REPORT_COST } from '@/lib/costs'
 import { INVITE_REWARD, INVITE_MAX_COUNT } from '@/lib/invite'
-import { generateMainReport } from '@/lib/services/report-service'
 import { ensureLLMConfigured } from '@/lib/services/llm-service'
+import { generateMainReport } from '@/lib/services/report-service'
+
+/** 主报告 LLM 约 100s；Vercel 开启 Fluid Compute（默认）或 Pro 可设 300s，同请求内完成，无需 Worker */
+export const maxDuration = 300
+
+const STEPS = [
+  '编码解析',
+  '采用紫微斗数进行命理排盘',
+  '先天命盘解析',
+  '全域能量解析',
+  '大限走势解析',
+  '输出解码结果',
+]
+
+const STEP_DELAY_MS = 1500
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms))
+}
 
 async function processInvitesOnMainReportComplete(inviteeUserId: string) {
   const pending = await getInvitesByInvitee(inviteeUserId)
@@ -29,67 +46,36 @@ async function processInvitesOnMainReportComplete(inviteeUserId: string) {
   }
 }
 
-const STEPS = [
-  '编码解析',
-  '采用紫微斗数进行命理排盘',
-  '先天命盘解析',
-  '全域能量解析',
-  '大限走势解析',
-  '输出解码结果',
-]
-
-/** 诊断：Vercel Logs 里搜 [report-dbg] 可判断后台是否被终止 */
-const DBG = (msg: string, data?: Record<string, unknown>) => {
-  console.log('[report-dbg]', msg, data ?? '')
-}
-
-async function runReportJob(jobId: string, archiveId: string) {
-  DBG('后台任务已启动', { jobId, archiveId })
-  let step = 0
+/** 同请求内完成步骤 + LLM 生成（需 maxDuration 足够，如 300s） */
+async function runReportJobInRequest(jobId: string, archiveId: string): Promise<void> {
   const totalSteps = STEPS.length
-
-  const tick = async () => {
-    step += 1
-    DBG(`tick step=${step}/${totalSteps}`, { step, totalSteps })
+  for (let step = 1; step <= totalSteps; step++) {
     const j = await getReportJobById(jobId)
-    if (!j || j.status !== 'running') {
-      DBG('任务已停止，不再继续', { status: j?.status })
-      return
+    if (!j || (j.status !== 'running' && j.status !== 'processing')) return
+    if (step < totalSteps) {
+      await updateReportJob(jobId, { currentStep: step, totalSteps, stepLabel: STEPS[step - 1] })
+      await delay(STEP_DELAY_MS)
+      continue
     }
-
-    if (step >= totalSteps) {
-      DBG('开始调用 LLM 生成报告')
-      try {
-        const report = await generateMainReport(archiveId)
-        DBG('报告生成成功')
-        await updateReportJob(jobId, {
-          status: 'completed',
-          completedAt: new Date().toISOString(),
-          stepLabel: undefined,
-        })
-        const archive = await getArchiveById(archiveId)
-        if (archive) await processInvitesOnMainReportComplete(archive.userId)
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error)
-        console.error('[report-dbg] Generation failed:', msg)
-        await updateReportJob(jobId, {
-          status: 'failed',
-          stepLabel: '报告生成失败',
-          error: msg,
-        })
-      }
-      return
+    try {
+      await generateMainReport(archiveId)
+      await updateReportJob(jobId, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        stepLabel: undefined,
+      })
+      const archive = await getArchiveById(archiveId)
+      if (archive) await processInvitesOnMainReportComplete(archive.userId)
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error)
+      console.error('[report/generate] Generation failed:', msg)
+      await updateReportJob(jobId, {
+        status: 'failed',
+        stepLabel: '报告生成失败',
+        error: msg,
+      })
     }
-
-    await updateReportJob(jobId, {
-      currentStep: step,
-      totalSteps,
-      stepLabel: STEPS[step - 1],
-    })
-    setTimeout(() => tick(), 1500)
   }
-
-  setTimeout(() => tick(), 1500)
 }
 
 export async function POST(request: Request) {
@@ -112,7 +98,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: '不足能量要充值', error: 'INSUFFICIENT_BALANCE' }, { status: 402 })
     }
 
-    // 发起前校验 LLM 配置，避免扣费后后台任务失败
     try {
       ensureLLMConfigured()
     } catch (llmErr) {
@@ -129,8 +114,7 @@ export async function POST(request: Request) {
     })
 
     const jobId = await createReportJob(archiveId, 'running', STEPS[0])
-    runReportJob(jobId, archiveId)
-
+    await runReportJobInRequest(jobId, archiveId)
     return NextResponse.json({ jobId })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)

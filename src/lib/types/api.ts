@@ -43,8 +43,8 @@ export interface ApiArchive {
   isLeapMonth?: boolean
 }
 
-/** 主报告任务状态 */
-export type ReportJobStatus = 'pending' | 'running' | 'completed' | 'failed'
+/** 主报告任务状态（running=待领取，processing=Worker 已领取正在执行） */
+export type ReportJobStatus = 'pending' | 'running' | 'processing' | 'completed' | 'failed'
 
 /** 主报告任务（轮询 status 时返回） */
 export interface ApiReportJob {
