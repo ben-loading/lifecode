@@ -83,6 +83,7 @@ function ReportPageContent() {
   const [reportFetchedForArchiveId, setReportFetchedForArchiveId] = useState<string | null>(null)
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [archiveDisplayName, setArchiveDisplayName] = useState<string | null>(null)
+  const [showLoadingRegenerate, setShowLoadingRegenerate] = useState(false)
   const showEmptyState = !hasJobFromUrl && !mainReport && !effectiveArchiveId
   const loadingReportByArchive = !hasJobFromUrl && Boolean(effectiveArchiveId) && reportFetchedForArchiveId !== effectiveArchiveId
   const noReportForCurrentArchive = !hasJobFromUrl && Boolean(effectiveArchiveId) && reportFetchedForArchiveId === effectiveArchiveId && !mainReport
@@ -120,7 +121,7 @@ function ReportPageContent() {
   }, [isAnalyzing])
 
   // 仅轮询任务是否完成（不依赖后端步进），完成后拉取主报告；若任务完成但数据库无报告或轮询超时，展示错误并允许重新生成
-  const POLL_TIMEOUT_MS = 5 * 60 * 1000 // 5 分钟超时
+  const POLL_TIMEOUT_MS = 150 * 1000 // 150 秒超时后提示重新生成
   useEffect(() => {
     if (!jobId || !archiveId) return
     let cancelled = false
@@ -166,14 +167,33 @@ function ReportPageContent() {
     }
   }, [jobId, archiveId, setUser, setHasCompletedMainReport])
 
-  // 无 jobId 时按档案查状态：有结果直接展示，有进行中任务则跳转走分析动画，否则显示生成失败
-  // 进入时先清空上一档案的报告/错误，避免未加载前显示模版或错误档案
+  // 有 jobId 且一直在「加载报告中」时，约 25 秒后展示「重新生成」入口，避免长时间卡住
+  const LOADING_REGENERATE_DELAY_MS = 25 * 1000
+  useEffect(() => {
+    if (!hasJobFromUrl || mainReport || generationError) {
+      setShowLoadingRegenerate(false)
+      return
+    }
+    const t = setTimeout(() => setShowLoadingRegenerate(true), LOADING_REGENERATE_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [hasJobFromUrl, mainReport, generationError])
+
+  // 无 jobId 时按档案查状态：有结果直接展示，有进行中任务则跳转走分析动画，否则显示生成失败；超时则视为无报告并展示重新生成
+  const FETCH_STATUS_TIMEOUT_MS = 15 * 1000 // 15 秒
   useEffect(() => {
     if (jobId || !effectiveArchiveId) return
     setMainReport(null)
     setGenerationError(null)
     setReportFetchedForArchiveId(null)
+    let cancelled = false
+    const timeoutId = setTimeout(() => {
+      if (cancelled) return
+      setMainReport(null)
+      setReportFetchedForArchiveId(effectiveArchiveId)
+    }, FETCH_STATUS_TIMEOUT_MS)
     getReportArchiveStatus(effectiveArchiveId).then(({ report, runningJob }) => {
+      if (cancelled) return
+      clearTimeout(timeoutId)
       if (report) {
         setMainReport(report)
         setReportFetchedForArchiveId(effectiveArchiveId)
@@ -187,9 +207,15 @@ function ReportPageContent() {
       setMainReport(null)
       setReportFetchedForArchiveId(effectiveArchiveId)
     }).catch(() => {
+      if (cancelled) return
+      clearTimeout(timeoutId)
       setMainReport(null)
       setReportFetchedForArchiveId(effectiveArchiveId)
     })
+    return () => {
+      cancelled = true
+      clearTimeout(timeoutId)
+    }
   }, [jobId, effectiveArchiveId, router])
 
   // 根据当前档案 ID 拉取档案名，刷新后不再依赖 user.archiveName，避免显示占位「KC小可爱」
@@ -487,10 +513,26 @@ function ReportPageContent() {
           </div>
         </div>
       ) : !reportBelongsToCurrentArchive && !generationError ? (
-        /* 报告未就绪或属于其他档案：避免刷新/切换时显示默认案例内容；若有 generationError（完成但无报告/超时）则走下方 Report State 展示重新生成 */
+        /* 报告未就绪或属于其他档案：避免刷新/切换时显示默认案例内容；若有 generationError 则走下方 Report State 展示重新生成；加载过久则展示重新生成入口 */
         <div className="px-5 py-12 flex-1 flex flex-col items-center justify-center text-center space-y-4">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-muted-foreground">加载报告中...</p>
+          {showLoadingRegenerate && effectiveArchiveId && (
+            <div className="pt-4 space-y-2">
+              <p className="text-xs text-muted-foreground">加载时间较长，可能报告未写入</p>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isRegenerating}
+                onClick={() => {
+                  setGenerationError('报告加载超时，请重新生成')
+                }}
+                className="rounded-full"
+              >
+                重新生成
+              </Button>
+            </div>
+          )}
         </div>
       ) : noReportForCurrentArchive ? (
         /* 获取不到报告：显示生成失败，点击重新生成后直接进入上方分析过渡动画 */
