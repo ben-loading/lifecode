@@ -38,34 +38,44 @@ const STEPS = [
   '输出解码结果',
 ]
 
+/** 诊断：Vercel Logs 里搜 [report-dbg] 可判断后台是否被终止 */
+const DBG = (msg: string, data?: Record<string, unknown>) => {
+  console.log('[report-dbg]', msg, data ?? '')
+}
+
 async function runReportJob(jobId: string, archiveId: string) {
+  DBG('后台任务已启动', { jobId, archiveId })
   let step = 0
   const totalSteps = STEPS.length
 
   const tick = async () => {
     step += 1
+    DBG(`tick step=${step}/${totalSteps}`, { step, totalSteps })
     const j = await getReportJobById(jobId)
-    if (!j || j.status !== 'running') return
+    if (!j || j.status !== 'running') {
+      DBG('任务已停止，不再继续', { status: j?.status })
+      return
+    }
 
     if (step >= totalSteps) {
+      DBG('开始调用 LLM 生成报告')
       try {
         const report = await generateMainReport(archiveId)
+        DBG('报告生成成功')
         await updateReportJob(jobId, {
           status: 'completed',
           completedAt: new Date().toISOString(),
           stepLabel: undefined,
         })
-
         const archive = await getArchiveById(archiveId)
-        if (archive) {
-          await processInvitesOnMainReportComplete(archive.userId)
-        }
+        if (archive) await processInvitesOnMainReportComplete(archive.userId)
       } catch (error) {
-        console.error('[runReportJob] Generation failed:', error)
+        const msg = error instanceof Error ? error.message : String(error)
+        console.error('[report-dbg] Generation failed:', msg)
         await updateReportJob(jobId, {
           status: 'failed',
           stepLabel: '报告生成失败',
-          error: error instanceof Error ? error.message : String(error),
+          error: msg,
         })
       }
       return
