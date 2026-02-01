@@ -73,11 +73,12 @@ function ReportPageContent() {
   const hasJobFromUrl = Boolean(jobId && archiveId)
   // 当前查看的档案：URL 优先，避免侧栏切换档案时仍显示上一个有报告档案的内容
   const effectiveArchiveId = archiveIdFromUrl ?? user.currentArchiveId
-  // 仅当 URL 带有 jobId+archiveId（真实生成任务）时显示分析中，避免无参数时出现假进度
-  const [isAnalyzing, setIsAnalyzing] = useState(hasJobFromUrl)
+  // 仅当「重新生成」时显示分析动画（URL 带 jobId 且是用户主动重试），首次生成在档案页完成
+  const isRetryFromReportPage = searchParams.get('retry') === '1'
+  const [isAnalyzing, setIsAnalyzing] = useState(isRetryFromReportPage)
   // currentStep：0=第一步进行中 … 5=第六步进行中，6=全部完成。由前端计时驱动，不依赖后端 currentStep
   const [currentStep, setCurrentStep] = useState(
-    hasJobFromUrl ? 0 : analysisStepsConfig.length,
+    isRetryFromReportPage ? 0 : analysisStepsConfig.length,
   )
   const [reportFetchedForArchiveId, setReportFetchedForArchiveId] = useState<string | null>(null)
   const [isRegenerating, setIsRegenerating] = useState(false)
@@ -510,7 +511,7 @@ function ReportPageContent() {
                 setIsRegenerating(true)
                 try {
                   const { jobId: newJobId } = await createReportJobRetry(effectiveArchiveId)
-                  router.replace(`/report?jobId=${newJobId}&archiveId=${effectiveArchiveId}`)
+                  router.replace(`/report?jobId=${newJobId}&archiveId=${effectiveArchiveId}&retry=1`)
                 } catch (err: unknown) {
                   const msg = err instanceof Error ? err.message : String(err)
                   if (msg.includes('请先使用') || msg.includes('NEED_FIRST_GENERATE')) {
@@ -561,7 +562,7 @@ function ReportPageContent() {
                     setIsRegenerating(true)
                     try {
                       const { jobId: newJobId } = await createReportJobRetry(aid)
-                      router.replace(`/report?jobId=${newJobId}&archiveId=${aid}`)
+                      router.replace(`/report?jobId=${newJobId}&archiveId=${aid}&retry=1`)
                     } catch (err: unknown) {
                       const msg = err instanceof Error ? err.message : String(err)
                       if (msg.includes('请先使用') || msg.includes('NEED_FIRST_GENERATE')) {

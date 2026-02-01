@@ -3,12 +3,23 @@
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
 import { useAppContext } from '@/lib/context'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createArchive, createReportJob } from '@/lib/api-client'
 import { MAIN_REPORT_COST } from '@/lib/costs'
 import { LoginModal } from '@/components/login-modal'
 import { InsufficientBalanceDialog } from '@/components/insufficient-balance-dialog'
+
+// 分析步骤配置（与后端流程对应）
+const analysisStepsConfig = [
+  { id: 1, label: '分析时辰', subLabel: '解析出生时间与地区' },
+  { id: 2, label: '分析八字', subLabel: '节气四柱排盘' },
+  { id: 3, label: '分析排盘', subLabel: '紫微斗数命盘' },
+  { id: 4, label: '先天命盘解析', subLabel: '构建分析上下文' },
+  { id: 5, label: '大限与流年解析', subLabel: '生成命理解读' },
+  { id: 6, label: '输出解码结果', subLabel: '校验与呈现' },
+]
 
 export function ArchivePage() {
   const router = useRouter()
@@ -18,6 +29,30 @@ export function ArchivePage() {
   const [showInsufficient, setShowInsufficient] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [currentStep, setCurrentStep] = useState(analysisStepsConfig.length)
+
+  // 分析步骤动画：前端计时驱动，约70s平摊至前5步
+  useEffect(() => {
+    if (!loading) return
+    const stepDurations = [10000, 10000, 12000, 13000, 25000] // 前5步合计~70s(ms)
+    let stepIndex = 0
+    setCurrentStep(0)
+    const timeouts: ReturnType<typeof setTimeout>[] = []
+    const scheduleNext = () => {
+      if (stepIndex >= stepDurations.length) return
+      const t = setTimeout(() => {
+        setCurrentStep((prev) => {
+          const next = prev + 1
+          return next > 5 ? 5 : next
+        })
+        stepIndex += 1
+        scheduleNext()
+      }, stepDurations[stepIndex])
+      timeouts.push(t)
+    }
+    scheduleNext()
+    return () => timeouts.forEach(clearTimeout)
+  }, [loading])
 
   const handleStartDecode = async () => {
     if (!archiveNote?.trim()) return
@@ -120,12 +155,96 @@ export function ArchivePage() {
             disabled={!archiveNote.trim() || loading}
             className="w-full h-12 rounded-lg"
           >
-            {loading ? '发起中…' : '开启解码'}
+            {loading ? '正在解码' : '开启解码'}
           </Button>
           <p className="text-xs text-muted-foreground text-center">
             不用担心，这份编码对会得到安全的保护
           </p>
         </div>
+
+        {/* 分析动画：点击后在下方显示 */}
+        {loading && (
+          <div className="mt-8 pt-8 border-t border-border">
+            <div className="text-center space-y-3 mb-6">
+              <h2 className="text-lg tracking-wider font-medium">正在解码中...</h2>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                解码不会因关闭页面而中断，完成后将自动展示报告
+              </p>
+            </div>
+
+            <Separator className="bg-border mb-6" />
+
+            {/* 分析步骤 */}
+            <div className="space-y-4">
+              {analysisStepsConfig.map((step, index) => {
+                const isCompleted = index < currentStep
+                const isInProgress = index === currentStep && loading
+
+                return (
+                  <div key={step.id} className="flex items-start gap-4">
+                    <div className="flex flex-col items-center pt-1">
+                      <div
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-500 shrink-0 ${
+                          isCompleted
+                            ? 'bg-primary text-primary-foreground'
+                            : isInProgress
+                              ? 'bg-primary/10 border-2 border-primary'
+                              : 'bg-border text-muted-foreground'
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <span className="text-primary-foreground">✓</span>
+                        ) : isInProgress ? (
+                          <div
+                            className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin"
+                            aria-hidden
+                          />
+                        ) : (
+                          <span className="text-muted-foreground">○</span>
+                        )}
+                      </div>
+                      {index < analysisStepsConfig.length - 1 && (
+                        <div
+                          className={`w-0.5 h-12 transition-colors duration-500 ${
+                            isCompleted ? 'bg-primary' : 'bg-border'
+                          }`}
+                        />
+                      )}
+                    </div>
+
+                    <div className="flex-1 pt-0.5 min-w-0">
+                      <p
+                        className={`text-sm font-medium tracking-wide transition-colors duration-500 ${
+                          isCompleted || isInProgress ? 'text-foreground' : 'text-muted-foreground'
+                        }`}
+                      >
+                        {step.label}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {isCompleted ? '已完成' : isInProgress ? '进行中…' : step.subLabel ?? '待处理'}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* 进度百分比 */}
+            <div className="mt-8 pt-6 border-t border-border text-center space-y-2">
+              <p className="text-2xl font-medium text-primary">
+                {loading && currentStep < 5
+                  ? Math.round(((currentStep + 1) / analysisStepsConfig.length) * 100)
+                  : loading && currentStep === 5
+                    ? 92
+                    : 100}
+                %
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {loading && currentStep === 5 ? '正在生成命理解读…' : '分析进度'}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <LoginModal
