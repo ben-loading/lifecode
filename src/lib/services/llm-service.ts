@@ -19,6 +19,14 @@ export interface LLMOptions {
 
 const REQUEST_TIMEOUT_MS = 3 * 60 * 1000
 
+/**
+ * 校验 LLM 是否已配置（用于发起报告前检查，避免扣费后生成失败）
+ * 未配置时抛出带说明的 Error
+ */
+export function ensureLLMConfigured(): void {
+  getProviderConfig()
+}
+
 function getProviderConfig(): { provider: LLMProvider; apiKey: string; baseURL?: string } {
   const explicit = (process.env.LLM_PROVIDER || '').toLowerCase() as LLMProvider | ''
   const hasDeepSeek = process.env.DEEPSEEK_API_KEY && process.env.DEEPSEEK_API_KEY !== 'sk-...'
@@ -35,7 +43,7 @@ function getProviderConfig(): { provider: LLMProvider; apiKey: string; baseURL?:
   if (provider === 'deepseek') {
     const apiKey = process.env.DEEPSEEK_API_KEY
     if (!apiKey || apiKey === 'sk-...') {
-      throw new Error('使用 DeepSeek 时请在 .env.local 中设置 DEEPSEEK_API_KEY')
+      throw new Error('未配置 DeepSeek：请在 Vercel 环境变量中设置 DEEPSEEK_API_KEY 和 LLM_PROVIDER=deepseek，并重新部署')
     }
     return {
       provider: 'deepseek',
@@ -45,7 +53,7 @@ function getProviderConfig(): { provider: LLMProvider; apiKey: string; baseURL?:
   }
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey || apiKey === 'sk-...') {
-    throw new Error('使用 OpenAI 时请在 .env.local 中设置 OPENAI_API_KEY')
+    throw new Error('未配置 OpenAI：请在 Vercel 环境变量中设置 OPENAI_API_KEY 和 LLM_PROVIDER=openai，并重新部署')
   }
   return { provider: 'openai', apiKey }
 }

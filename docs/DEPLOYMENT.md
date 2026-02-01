@@ -169,6 +169,9 @@ vercel env add LLM_PROVIDER
 | DEEPSEEK_API_KEY | DeepSeek API Key（https://platform.deepseek.com） |
 | LLM_PROVIDER | `deepseek` |
 
+**主报告生成依赖**：线上环境要能生成主报告，必须在 Vercel 中配置 **DEEPSEEK_API_KEY** 和 **LLM_PROVIDER**（值为 `deepseek`），并重新部署。未配置时点击「开启解码」会返回 503 并提示未配置 LLM。  
+**超时说明**：主报告生成约需 50 秒以上，Vercel Hobby 计划函数超时 10 秒，可能导致任务被中断；Pro 计划 60 秒。若线上一直无法获得主报告，请检查：① 环境变量是否已配置并生效；② 部署后是否重新部署过；③ 若任务状态为「报告生成失败」，在 Vercel Logs 中查看具体错误。
+
 ### 4. 部署项目
 ```bash
 cd /Users/bd/Documents/selfdev/lifecode
@@ -178,6 +181,18 @@ vercel --prod
 ### 5. 访问测试
 部署完成后，Vercel 会提供访问链接，如：
 - https://lifecode-xxx.vercel.app
+
+### 6. 检查线上环境变量是否生效
+部署后若登录、主报告等异常，可先确认服务端是否能看到环境变量：
+
+1. 在浏览器打开：**https://你的域名.vercel.app/api/debug/env**
+2. 页面会返回 JSON，包含：
+   - **env**：各变量是否已设置（true/false，不显示具体值）
+   - **summary.supabase**：Supabase 是否已配置
+   - **summary.llm**：LLM 是否已配置、主报告能否生成
+3. 若某项为 **false** 或 **LLM 未配置**：到 Vercel → 项目 → **Settings** → **Environment Variables** 检查是否添加、是否勾选 **Production**，保存后必须点 **Redeploy** 重新部署才会生效。
+
+也可访问 **/api/debug/supabase** 检查 Supabase 连接是否正常。
 
 ---
 

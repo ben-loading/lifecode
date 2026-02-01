@@ -16,6 +16,7 @@ import { parseJsonBody, badRequest, unauthorized } from '@/lib/api-utils'
 import { MAIN_REPORT_COST } from '@/lib/costs'
 import { INVITE_REWARD, INVITE_MAX_COUNT } from '@/lib/invite'
 import { generateMainReport } from '@/lib/services/report-service'
+import { ensureLLMConfigured } from '@/lib/services/llm-service'
 
 async function processInvitesOnMainReportComplete(inviteeUserId: string) {
   const pending = await getInvitesByInvitee(inviteeUserId)
@@ -99,6 +100,15 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: '用户不存在' }, { status: 404 })
     if (user.balance < MAIN_REPORT_COST) {
       return NextResponse.json({ message: '不足能量要充值', error: 'INSUFFICIENT_BALANCE' }, { status: 402 })
+    }
+
+    // 发起前校验 LLM 配置，避免扣费后后台任务失败
+    try {
+      ensureLLMConfigured()
+    } catch (llmErr) {
+      const msg = llmErr instanceof Error ? llmErr.message : String(llmErr)
+      console.error('[report/generate] LLM not configured:', msg)
+      return NextResponse.json({ error: msg }, { status: 503 })
     }
 
     await updateUserBalance(userId, -MAIN_REPORT_COST)
