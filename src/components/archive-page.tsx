@@ -21,6 +21,8 @@ const analysisStepsConfig = [
   { id: 6, label: '输出解码结果', subLabel: '校验与呈现' },
 ]
 
+const ANALYSIS_STEPS_DELAY_MS = 480 // 档案名出现后再展示步骤，更从容
+
 export function ArchivePage() {
   const router = useRouter()
   const { user, setUser, balance, setBalance } = useAppContext()
@@ -30,6 +32,27 @@ export function ArchivePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [currentStep, setCurrentStep] = useState(analysisStepsConfig.length)
+  const [decodingFadeIn, setDecodingFadeIn] = useState(false)
+  const [analysisStepsVisible, setAnalysisStepsVisible] = useState(false)
+  const [stepsFadeIn, setStepsFadeIn] = useState(false)
+
+  // 进入解码视图：先淡入档案名，再延迟展示步骤并淡入
+  useEffect(() => {
+    if (!loading) {
+      setDecodingFadeIn(false)
+      setAnalysisStepsVisible(false)
+      setStepsFadeIn(false)
+      return
+    }
+    const t1 = setTimeout(() => setDecodingFadeIn(true), 40)
+    const t2 = setTimeout(() => setAnalysisStepsVisible(true), ANALYSIS_STEPS_DELAY_MS)
+    const t3 = setTimeout(() => setStepsFadeIn(true), ANALYSIS_STEPS_DELAY_MS + 80)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      clearTimeout(t3)
+    }
+  }, [loading])
 
   // 分析步骤动画：前端计时驱动，约70s平摊至前5步
   useEffect(() => {
@@ -120,63 +143,81 @@ export function ArchivePage() {
       </header>
 
       {/* Content */}
-      <div className="px-6 py-8 space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-medium tracking-wider">
-            为这份"编码"备注档案
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            未来更方便查阅
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          {/* Archive Note Input */}
-          <div className="space-y-3">
-            <label className="text-xs text-muted-foreground tracking-wider">#档案备注</label>
-            <input
-              type="text"
-              value={archiveNote}
-              onChange={(e) => setArchiveNote(e.target.value.slice(0, 12))}
-              placeholder="XXXX"
-              maxLength={12}
-              className="w-full px-4 py-3 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-            />
-            <p className="text-xs text-muted-foreground text-right">
-              {archiveNote.length}/12
-            </p>
-          </div>
-        </div>
-
-        <div className="pt-4 space-y-3">
-          {error && <p className="text-xs text-destructive text-center">{error}</p>}
-          <Button
-            onClick={handleStartDecode}
-            disabled={!archiveNote.trim() || loading}
-            className="w-full h-12 rounded-lg"
-          >
-            {loading ? '正在解码' : '开启解码'}
-          </Button>
-          <p className="text-xs text-muted-foreground text-center">
-            不用担心，这份编码对会得到安全的保护
-          </p>
-        </div>
-
-        {/* 分析动画：点击后在下方显示 */}
-        {loading && (
-          <div className="mt-8 pt-8 border-t border-border">
-            <div className="text-center space-y-3 mb-6">
-              <h2 className="text-lg tracking-wider font-medium">正在解码中...</h2>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                解码不会因关闭页面而中断，完成后将自动展示报告
+      <div className="px-6 py-8 min-h-[60vh]">
+        {/* 表单：未点击解码时显示 */}
+        {!loading && (
+          <div className="space-y-8 transition-opacity duration-300">
+            <div className="text-center space-y-2">
+              <h1 className="text-2xl font-medium tracking-wider">
+                为这份"编码"备注档案
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                未来更方便查阅
               </p>
             </div>
 
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <label className="text-xs text-muted-foreground tracking-wider">#档案备注</label>
+                <input
+                  type="text"
+                  value={archiveNote}
+                  onChange={(e) => setArchiveNote(e.target.value.slice(0, 12))}
+                  placeholder="XXXX"
+                  maxLength={12}
+                  className="w-full px-4 py-3 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                />
+                <p className="text-xs text-muted-foreground text-right">
+                  {archiveNote.length}/12
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-4 space-y-3">
+              {error && <p className="text-xs text-destructive text-center">{error}</p>}
+              <Button
+                onClick={handleStartDecode}
+                disabled={!archiveNote.trim()}
+                className="w-full h-12 rounded-lg"
+              >
+                开启解码
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                不用担心，这份编码对会得到安全的保护
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 解码视图：点击后描述/输入/按钮消失，显示档案名 + 正在分析，再展示步骤 */}
+        {loading && (
+          <div
+            className={`transition-opacity duration-500 ease-out ${
+              decodingFadeIn ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            {/* 档案名 + 正在分析 */}
+            <section className="text-center space-y-3 mb-8 pt-4">
+              <h1 className="text-2xl tracking-[0.2em] font-semibold text-foreground">
+                {archiveNote.trim() || '档案'}
+              </h1>
+              <p className="text-sm text-muted-foreground tracking-wide">正在分析</p>
+              <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mx-auto">
+                解码不会因关闭页面而中断，完成后将自动展示报告
+              </p>
+            </section>
+
             <Separator className="bg-border mb-6" />
 
-            {/* 分析步骤 */}
-            <div className="space-y-4">
-              {analysisStepsConfig.map((step, index) => {
+            {/* 分析步骤：延迟出现并淡入 */}
+            {analysisStepsVisible && (
+              <div
+                className={`transition-opacity duration-500 ease-out ${
+                  stepsFadeIn ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                <div className="space-y-4">
+                  {analysisStepsConfig.map((step, index) => {
                 const isCompleted = index < currentStep
                 const isInProgress = index === currentStep && loading
 
@@ -226,23 +267,25 @@ export function ArchivePage() {
                     </div>
                   </div>
                 )
-              })}
-            </div>
+                  })}
+                </div>
 
-            {/* 进度百分比 */}
-            <div className="mt-8 pt-6 border-t border-border text-center space-y-2">
-              <p className="text-2xl font-medium text-primary">
-                {loading && currentStep < 5
-                  ? Math.round(((currentStep + 1) / analysisStepsConfig.length) * 100)
-                  : loading && currentStep === 5
-                    ? 92
-                    : 100}
-                %
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {loading && currentStep === 5 ? '正在生成命理解读…' : '分析进度'}
-              </p>
-            </div>
+                {/* 进度百分比 */}
+                <div className="mt-8 pt-6 border-t border-border text-center space-y-2">
+                  <p className="text-2xl font-medium text-primary">
+                    {loading && currentStep < 5
+                      ? Math.round(((currentStep + 1) / analysisStepsConfig.length) * 100)
+                      : loading && currentStep === 5
+                        ? 92
+                        : 100}
+                    %
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {loading && currentStep === 5 ? '正在生成命理解读…' : '分析进度'}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

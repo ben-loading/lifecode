@@ -105,7 +105,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-sm mx-auto">
+      <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-sm mx-auto">
         <DialogTitle className="sr-only">登录 / 注册</DialogTitle>
         <div className="space-y-6 py-4">
           <div className="text-center">
@@ -129,7 +129,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
 
             <div>
               <label className="text-xs text-muted-foreground mb-2 block tracking-wider">验证码（6位数字）</label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 min-w-0">
                 <input
                   type="text"
                   inputMode="numeric"
@@ -139,12 +139,12 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
                   onChange={(e) => setCode(/^\d*$/.test(e.target.value) ? e.target.value : code)}
                   placeholder={codeSent ? '请输入6位验证码' : '请先发送验证码'}
                   disabled={!codeSent}
-                  className="flex-1 px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="min-w-0 flex-1 px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <button
                   onClick={handleSendCode}
                   disabled={!email || countdown > 0}
-                  className="px-4 py-2 border border-border rounded-lg text-xs font-medium hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="shrink-0 px-4 py-2 border border-border rounded-lg text-xs font-medium hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {countdown > 0 ? `${countdown}s` : codeSent ? '重新发送' : '发送'}
                 </button>
