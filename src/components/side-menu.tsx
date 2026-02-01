@@ -51,7 +51,7 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
       archiveName: archive.name,
     }))
     onClose()
-    router.push('/report')
+    router.push(`/report?archiveId=${archive.id}`)
   }
 
   const handleLogout = async () => {

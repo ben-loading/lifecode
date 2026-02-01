@@ -220,6 +220,18 @@ export async function getReportJobById(jobId: string): Promise<ApiReportJob | nu
   return rowToReportJob(data)
 }
 
+/** 该档案是否已有过生成任务（用于允许免费重新生成） */
+export async function hasReportJobForArchive(archiveId: string): Promise<boolean> {
+  const client = getClient()
+  const { count, error } = await client
+    .from('ReportJob')
+    .select('*', { count: 'exact', head: true })
+    .eq('archiveId', archiveId)
+    .limit(1)
+  if (error) return false
+  return (count ?? 0) > 0
+}
+
 export async function createReportJob(archiveId: string, status: string, stepLabel?: string): Promise<string> {
   const client = getClient()
   const now = new Date().toISOString()

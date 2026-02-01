@@ -106,6 +106,14 @@ export async function createReportJob(body: CreateReportJobBody): Promise<{ jobI
   })
 }
 
+/** 重新生成主报告（不扣能量，仅当该档案已有过生成任务时可用） */
+export async function createReportJobRetry(archiveId: string): Promise<{ jobId: string }> {
+  return request<{ jobId: string }>('/report/generate', {
+    method: 'POST',
+    body: JSON.stringify({ archiveId, retry: true }),
+  })
+}
+
 export async function getReportJobStatus(jobId: string): Promise<ApiReportJob> {
   return request<ApiReportJob>(`/report/status/${jobId}`)
 }

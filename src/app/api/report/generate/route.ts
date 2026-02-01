@@ -8,6 +8,7 @@ import {
   createReportJob,
   updateReportJob,
   getReportJobById,
+  hasReportJobForArchive,
   getInvitesByInvitee,
   setInviteValid,
   getValidInviteCount,
@@ -83,10 +84,11 @@ export async function POST(request: Request) {
     const userId = await getUserIdFromRequest(request)
     if (!userId) return unauthorized()
 
-    const body = await parseJsonBody<{ archiveId?: string }>(request)
+    const body = await parseJsonBody<{ archiveId?: string; retry?: boolean }>(request)
     if (body == null) return badRequest('请求体无效')
     const archiveId = typeof body.archiveId === 'string' ? body.archiveId.trim() : ''
     if (!archiveId) return badRequest('缺少 archiveId')
+    const isRetry = body.retry === true
 
     const archive = await getArchiveById(archiveId)
     if (!archive || archive.userId !== userId) {
@@ -94,8 +96,19 @@ export async function POST(request: Request) {
     }
     const user = await getUserById(userId)
     if (!user) return NextResponse.json({ error: '用户不存在' }, { status: 404 })
-    if (user.balance < MAIN_REPORT_COST) {
-      return NextResponse.json({ message: '不足能量要充值', error: 'INSUFFICIENT_BALANCE' }, { status: 402 })
+
+    if (isRetry) {
+      const hasJob = await hasReportJobForArchive(archiveId)
+      if (!hasJob) {
+        return NextResponse.json(
+          { error: '请先使用「开启解码」生成报告', code: 'NEED_FIRST_GENERATE' },
+          { status: 400 }
+        )
+      }
+    } else {
+      if (user.balance < MAIN_REPORT_COST) {
+        return NextResponse.json({ message: '不足能量要充值', error: 'INSUFFICIENT_BALANCE' }, { status: 402 })
+      }
     }
 
     try {
@@ -106,12 +119,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: msg }, { status: 503 })
     }
 
-    await updateUserBalance(userId, -MAIN_REPORT_COST)
-    await createTransaction(userId, {
-      type: 'consume',
-      amount: MAIN_REPORT_COST,
-      description: '主报告生成',
-    })
+    if (!isRetry) {
+      await updateUserBalance(userId, -MAIN_REPORT_COST)
+      await createTransaction(userId, {
+        type: 'consume',
+        amount: MAIN_REPORT_COST,
+        description: '主报告生成',
+      })
+    }
 
     const jobId = await createReportJob(archiveId, 'running', STEPS[0])
     await runReportJobInRequest(jobId, archiveId)
