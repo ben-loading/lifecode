@@ -74,11 +74,14 @@ export async function getUserByEmail(email: string): Promise<ApiUser | null> {
 
 export async function createUser(params: { id?: string; email: string; name?: string; balance: number; inviteRef: string }): Promise<ApiUser> {
   const client = getClient()
+  const now = new Date().toISOString()
   const insert: Record<string, unknown> = {
     email: params.email.toLowerCase(),
     name: params.name ?? params.email.split('@')[0],
     balance: params.balance,
     inviteRef: params.inviteRef,
+    createdAt: now,
+    updatedAt: now,
   }
   if (params.id) insert.id = params.id
   const { data, error } = await client.from('User').insert(insert).select().single()
