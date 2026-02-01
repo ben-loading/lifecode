@@ -146,6 +146,7 @@ export async function createArchive(userId: string, body: CreateArchiveBody): Pr
   const client = getClient()
   const now = new Date().toISOString()
   const insert: Record<string, unknown> = {
+    id: crypto.randomUUID(),
     userId,
     name: body.name.trim().slice(0, 12),
     gender: body.gender,
