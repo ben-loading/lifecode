@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useAppContext } from '@/lib/context'
@@ -22,12 +22,20 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const supabase = getSupabaseClient()
+  useEffect(() => {
+    if (isOpen) {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const keySet = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      console.log('[lifecode] SUPABASE_URL:', url || '(未设置)')
+      console.log('[lifecode] SUPABASE_ANON_KEY:', keySet ? '已设置' : '未设置')
+    }
+  }, [isOpen])
 
   const handleSendCode = async () => {
     if (!email?.trim()) return
     setError('')
     try {
+      const supabase = getSupabaseClient()
       const { error: err } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: { shouldCreateUser: true },
@@ -39,7 +47,8 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
         setCountdown((prev) => (prev <= 1 ? (clearInterval(timer), 0) : prev - 1))
       }, 1000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '发送失败')
+      const msg = e instanceof Error ? e.message : '发送失败'
+      setError(msg === 'Failed to fetch' ? '网络请求失败，请检查 Supabase 配置或稍后重试' : msg)
     }
   }
 
@@ -48,6 +57,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
     setError('')
     setLoading(true)
     try {
+      const supabase = getSupabaseClient()
       const { data, error: err } = await supabase.auth.verifyOtp({
         email: email.trim(),
         token: code.trim(),
@@ -77,7 +87,8 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
       onSuccess()
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : '登录失败')
+      const msg = e instanceof Error ? e.message : '登录失败'
+      setError(msg === 'Failed to fetch' ? '网络请求失败，请检查 Supabase 配置或稍后重试' : msg)
     } finally {
       setLoading(false)
     }

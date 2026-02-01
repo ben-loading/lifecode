@@ -23,7 +23,11 @@ function getEnvVars() {
 
 export function createClient() {
   const { url, anonKey } = getEnvVars()
-  return createBrowserClient(url, anonKey)
+  try {
+    return createBrowserClient(url, anonKey)
+  } catch {
+    return createBrowserClient('https://placeholder.supabase.co', 'placeholder-key')
+  }
 }
 
 // 单例模式，避免重复创建
