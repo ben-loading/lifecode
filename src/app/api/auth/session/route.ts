@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type User } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { getUserById, createUser, createTransaction } from '@/lib/db'
 
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
       )
     }
 
-    let authUser: { id: string; email: string | null; user_metadata?: { name?: string } } | null = null
+    let authUser: User | null = null
 
     const bearerToken = getBearerToken(request)
     if (bearerToken) {
