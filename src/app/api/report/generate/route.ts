@@ -138,7 +138,10 @@ export async function POST(request: Request) {
     }
 
     const jobId = await createReportJob(archiveId, 'running', STEPS[0])
-    await runReportJobInRequest(jobId, archiveId)
+    // 先返回 jobId，前端立即进入分析动画页；生成在后台执行，报告页轮询任务状态
+    runReportJobInRequest(jobId, archiveId).catch((err) =>
+      console.error('[report/generate] background run failed:', err)
+    )
     return NextResponse.json({ jobId })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
