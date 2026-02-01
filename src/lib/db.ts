@@ -144,6 +144,7 @@ export async function getArchiveById(id: string): Promise<ApiArchive | null> {
 
 export async function createArchive(userId: string, body: CreateArchiveBody): Promise<ApiArchive> {
   const client = getClient()
+  const now = new Date().toISOString()
   const insert: Record<string, unknown> = {
     userId,
     name: body.name.trim().slice(0, 12),
@@ -155,6 +156,8 @@ export async function createArchive(userId: string, body: CreateArchiveBody): Pr
     birthTimeBranch: body.birthTimeBranch ?? null,
     lunarDate: body.lunarDate ?? null,
     isLeapMonth: body.isLeapMonth ?? null,
+    createdAt: now,
+    updatedAt: now,
   }
   const { data, error } = await client.from('Archive').insert(insert).select().single()
   if (error) throw new Error(`创建档案失败: ${error.message}`)
