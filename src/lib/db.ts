@@ -186,12 +186,15 @@ export async function createMainReport(report: ApiMainReport): Promise<void> {
   const c = content as Record<string, unknown>
   const lifeScript = c.lifeScript as { title?: string } | undefined
   const foundationData = c.foundationData as Record<string, unknown> | undefined
+  const now = new Date().toISOString()
   await client.from('MainReport').upsert({
     id,
     archiveId,
     content,
     lifeScriptTitle: lifeScript?.title,
     baziDisplay: foundationData?.['八字'] as string | undefined,
+    createdAt: createdAt ?? now,
+    updatedAt: now,
   }, { onConflict: 'archiveId' })
 }
 
@@ -220,7 +223,9 @@ export async function getReportJobById(jobId: string): Promise<ApiReportJob | nu
 export async function createReportJob(archiveId: string, status: string, stepLabel?: string): Promise<string> {
   const client = getClient()
   const now = new Date().toISOString()
+  const id = crypto.randomUUID()
   const { data, error } = await client.from('ReportJob').insert({
+    id,
     archiveId,
     status,
     currentStep: 0,
@@ -230,7 +235,7 @@ export async function createReportJob(archiveId: string, status: string, stepLab
     updatedAt: now,
   }).select('id').single()
   if (error) throw new Error(`创建任务失败: ${error.message}`)
-  return data.id as string
+  return (data?.id as string) ?? id
 }
 
 export async function updateReportJob(jobId: string, updates: Partial<{ status: string; currentStep: number; totalSteps: number; stepLabel: string | null; error: string; completedAt: string }>): Promise<void> {
@@ -265,6 +270,7 @@ export async function createTransaction(userId: string, tx: { type: string; amou
   const client = getClient()
   const now = new Date().toISOString()
   await client.from('Transaction').insert({
+    id: crypto.randomUUID(),
     userId,
     type: tx.type,
     amount: tx.amount,
@@ -311,9 +317,10 @@ export async function setInviteValid(id: string): Promise<void> {
 export async function createInvite(inviterId: string, inviteeId: string): Promise<string> {
   const client = getClient()
   const now = new Date().toISOString()
-  const { data, error } = await client.from('Invite').insert({ inviterId, inviteeId, isValid: false, createdAt: now }).select('id').single()
+  const id = crypto.randomUUID()
+  const { data, error } = await client.from('Invite').insert({ id, inviterId, inviteeId, isValid: false, createdAt: now }).select('id').single()
   if (error) throw new Error(`创建邀请失败: ${error.message}`)
-  return data.id as string
+  return (data?.id as string) ?? id
 }
 
 export async function getInviteByInviterInvitee(inviterId: string, inviteeId: string): Promise<InviteRecord | null> {
