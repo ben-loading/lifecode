@@ -7,6 +7,8 @@ import type {
   ApiArchive,
   ApiReportJob,
   ApiMainReport,
+  ApiDeepReportJob,
+  ApiDeepReport,
   LoginBody,
   SendCodeBody,
   CreateArchiveBody,
@@ -165,6 +167,33 @@ export async function unlockDeepReport(
     method: 'POST',
     body: JSON.stringify({ archiveId, reportType }),
   })
+}
+
+/** 按档案查询 4 类深度报告状态：none / generating / completed / failed */
+export async function getDeepReportArchiveStatus(archiveId: string): Promise<
+  Record<string, { status: 'none' | 'generating' | 'completed' | 'failed'; jobId?: string }>
+> {
+  return request(`/report/deep/archive/${archiveId}/status`)
+}
+
+/** 发起深度报告生成；retry=true 时失败重试不扣费。返回 status=completed 表示成功可跳转，failed 表示失败可显示重新生成 */
+export async function createDeepReportJob(
+  archiveId: string,
+  reportType: string,
+  retry = false
+): Promise<{ jobId: string; status: 'completed' | 'failed' }> {
+  return request<{ jobId: string; status: 'completed' | 'failed' }>('/report/deep/generate', {
+    method: 'POST',
+    body: JSON.stringify({ archiveId, reportType, retry }),
+  })
+}
+
+export async function getDeepReportJobStatus(jobId: string): Promise<ApiDeepReportJob> {
+  return request<ApiDeepReportJob>(`/report/deep/status/${jobId}`)
+}
+
+export async function getDeepReport(archiveId: string, reportType: string): Promise<ApiDeepReport | null> {
+  return request<ApiDeepReport | null>(`/report/deep/${archiveId}/${reportType}`).catch(() => null)
 }
 
 const PENDING_INVITE_KEY = 'lifecode_pending_invite'

@@ -6,6 +6,8 @@
 
 import { loadPromptTemplate, renderTemplate } from '@/lib/prompts/loader'
 import type { IztroInput } from '@/lib/types/iztro-input'
+import { getArchiveById, getMainReportByArchiveId } from '@/lib/db'
+import { calculateAstrolabe } from './iztro-service'
 
 export interface BuiltPrompt {
   systemPrompt: string
@@ -37,5 +39,37 @@ export async function buildMainReportPrompt(iztroInput: IztroInput): Promise<Bui
     systemPrompt: template.system,
     userMessage,
     config: template.config
+  }
+}
+
+/**
+ * 构建未来运势深度报告 Prompt
+ * 输入：档案 ID；内部拉取档案、iztro 命盘、主报告，组装 GENDER、IZTRO_INPUT、MAIN_REPORT。
+ */
+export async function buildFutureFortunePrompt(archiveId: string): Promise<BuiltPrompt> {
+  const archive = await getArchiveById(archiveId)
+  if (!archive) throw new Error(`Archive not found: ${archiveId}`)
+  const iztroInput = await calculateAstrolabe(archive)
+  const mainReport = await getMainReportByArchiveId(archiveId)
+  const mainReportSummary = mainReport
+    ? {
+        lifeScriptTitle: mainReport.lifeScriptTitle,
+        lifeScriptDescription: mainReport.lifeScriptDescription,
+        coreAbility: mainReport.coreAbility,
+        baziDisplay: mainReport.baziDisplay,
+        yearlyDetails: mainReport.yearlyDetails,
+        palaceAnalysis: mainReport.palaceAnalysis,
+      }
+    : {}
+  const template = loadPromptTemplate('future-fortune')
+  const userMessage = renderTemplate(template.userTemplate, {
+    GENDER: archive.gender === 'male' ? '男' : '女',
+    IZTRO_INPUT: JSON.stringify(iztroInput, null, 2),
+    MAIN_REPORT: JSON.stringify(mainReportSummary, null, 2),
+  })
+  return {
+    systemPrompt: template.system,
+    userMessage,
+    config: template.config,
   }
 }

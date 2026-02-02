@@ -9,11 +9,13 @@ import { topup as apiTopup, getTransactions, getSession } from '@/lib/api-client
 interface TopUpDialogProps {
   isOpen: boolean
   onClose: () => void
+  /** 充值成功并关闭后调用，用于父组件刷新余额（与服务器一致） */
+  onSuccess?: () => void
 }
 
 const PRESET_AMOUNTS = [200, 500, 1000]
 
-export function TopUpDialog({ isOpen, onClose }: TopUpDialogProps) {
+export function TopUpDialog({ isOpen, onClose, onSuccess }: TopUpDialogProps) {
   const { balance, setBalance, setTransactions } = useAppContext()
   const [selectedAmount, setSelectedAmount] = useState<number>(PRESET_AMOUNTS[0])
   const [isProcessing, setIsProcessing] = useState(false)
@@ -31,6 +33,7 @@ export function TopUpDialog({ isOpen, onClose }: TopUpDialogProps) {
       setIsSuccess(true)
       setTimeout(() => {
         setIsSuccess(false)
+        onSuccess?.()
         onClose()
       }, 900)
     } catch (e) {

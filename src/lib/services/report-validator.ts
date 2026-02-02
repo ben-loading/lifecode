@@ -28,7 +28,58 @@ export function extractJsonFromResponse(raw: string): string {
   const first = text.indexOf('{')
   const last = text.lastIndexOf('}')
   if (first !== -1 && last !== -1 && last > first) return text.slice(first, last + 1)
-  return text
+  throw new Error(
+    'No JSON object found in LLM response. Response length: ' +
+      text.length +
+      (text.length > 0 ? ', starts with: ' + JSON.stringify(text.slice(0, 200)) : ' (empty).')
+  )
+}
+
+/**
+ * 尝试修复被截断的 JSON（LLM 输出在未写完时被截断）
+ * 移除末尾不完整的 key（如 "本年核心攻略 无值），补全闭合括号
+ */
+export function repairTruncatedJson(jsonStr: string): string {
+  let s = jsonStr.trim()
+  // 末尾不完整的 key：以 "," 或 "{" 后跟空白和 "xxx" 或 "xxx 结尾
+  const incompleteKeyMatch = s.match(/,\s*"[^"]*"?\s*$/)
+  if (incompleteKeyMatch) {
+    s = s.slice(0, s.length - incompleteKeyMatch[0].length) + '}'
+  }
+  // 补全未闭合的 { 和 [
+  let openBraces = 0
+  let openBrackets = 0
+  let inString = false
+  let escape = false
+  let quote = ''
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (escape) {
+      escape = false
+      continue
+    }
+    if (c === '\\' && inString) {
+      escape = true
+      continue
+    }
+    if ((c === '"' || c === "'") && !inString) {
+      inString = true
+      quote = c
+      continue
+    }
+    if (c === quote && inString) {
+      inString = false
+      continue
+    }
+    if (!inString) {
+      if (c === '{') openBraces++
+      else if (c === '}') openBraces--
+      else if (c === '[') openBrackets++
+      else if (c === ']') openBrackets--
+    }
+  }
+  s += ']'.repeat(Math.max(0, openBrackets)) + '}'.repeat(Math.max(0, openBraces))
+  return s
 }
 
 // 七维顺序（与 radarData / dimensionDetails 一致）
@@ -370,3 +421,136 @@ export const MainReportSchema = z.object({
 })
 
 export type ValidatedMainReport = z.infer<typeof MainReportSchema>
+
+// === 未来运势深度报告 ===
+const FutureFortuneLevelStyleSchema = z.enum(['default', 'highlight', 'warn'])
+const FutureFortuneVariantSchema = z.enum(['default', 'danger', 'highlight'])
+
+const FutureFortuneAnchorSchema = z.object({
+  人生点题: z.string(),
+  时间坐标: z.string(),
+  当前大运: z.string(),
+  当前大运简评: z.string()
+})
+
+const FutureFortuneLastYearSchema = z.object({
+  年份关键词: z.string(),
+  深度体感与事件验证: z.string(),
+  极有可能发生: z.array(z.string())
+})
+
+const FutureFortunePracticeSchema = z.object({
+  流年信号: z.string(),
+  行动指南: z.string(),
+  策略补充: z.string().optional()
+})
+
+const FutureFortuneThisYearSchema = z.object({
+  副标题: z.string(),
+  年度总象标题: z.string(),
+  警报文案: z.string(),
+  财富实战: FutureFortunePracticeSchema,
+  情感实战: FutureFortunePracticeSchema,
+  事业实战: FutureFortunePracticeSchema
+})
+
+const FutureFortuneYearItemSchema = z.object({
+  年份标题: z.string(),
+  级别: z.string(),
+  级别样式: FutureFortuneLevelStyleSchema,
+  描述: z.string()
+})
+
+const FutureFortuneMonthItemSchema = z.object({
+  season: z.string(),
+  stems: z.string(),
+  stars: z.string(),
+  summary: z.string(),
+  description: z.string(),
+  variant: FutureFortuneVariantSchema
+})
+
+export const FutureFortuneReportSchema = z.object({
+  命格锚点: FutureFortuneAnchorSchema,
+  去年运势复盘: FutureFortuneLastYearSchema,
+  本年核心攻略: FutureFortuneThisYearSchema,
+  未来三年大势: z.array(FutureFortuneYearItemSchema).length(3, '必须包含 3 年'),
+  流月战术节奏: z.array(FutureFortuneMonthItemSchema).length(4, '必须包含 4 季')
+})
+
+export type ValidatedFutureFortuneReport = z.infer<typeof FutureFortuneReportSchema>
+
+const defaultAnchor = { 人生点题: '', 时间坐标: '', 当前大运: '', 当前大运简评: '' }
+const defaultLastYear = { 年份关键词: '', 深度体感与事件验证: '', 极有可能发生: [] as string[] }
+const defaultPractice = { 流年信号: '', 行动指南: '', 策略补充: '' }
+const defaultThisYear = {
+  副标题: '',
+  年度总象标题: '',
+  警报文案: '',
+  财富实战: defaultPractice,
+  情感实战: defaultPractice,
+  事业实战: defaultPractice,
+}
+const defaultYearItem = { 年份标题: '', 级别: '', 级别样式: 'default' as const, 描述: '' }
+const defaultMonthItem = {
+  season: '',
+  stems: '',
+  stars: '',
+  summary: '',
+  description: '',
+  variant: 'default' as const,
+}
+
+/** 兼容 LLM 可能输出的中文级别样式等，并补全缺失必填字段避免校验失败 */
+export function normalizeFutureFortuneOutput(raw: unknown): unknown {
+  if (raw === null || typeof raw !== 'object') return raw
+  const o = raw as Record<string, unknown>
+  const lastYearRaw = typeof o.去年运势复盘 === 'object' && o.去年运势复盘 !== null ? (o.去年运势复盘 as Record<string, unknown>) : {}
+  const lastYearArr = Array.isArray(lastYearRaw.极有可能发生)
+    ? (lastYearRaw.极有可能发生 as string[])
+    : []
+  const out: Record<string, unknown> = {
+    命格锚点: { ...defaultAnchor, ...(typeof o.命格锚点 === 'object' && o.命格锚点 !== null ? o.命格锚点 : {}) },
+    去年运势复盘: { ...defaultLastYear, ...lastYearRaw, 极有可能发生: lastYearArr },
+    本年核心攻略: { ...defaultThisYear, ...(typeof o.本年核心攻略 === 'object' && o.本年核心攻略 !== null ? o.本年核心攻略 : {}) },
+    未来三年大势: Array.isArray(o.未来三年大势) ? o.未来三年大势 : [],
+    流月战术节奏: Array.isArray(o.流月战术节奏) ? o.流月战术节奏 : [],
+  }
+
+  const levelStyleMap: Record<string, 'default' | 'highlight' | 'warn'> = {
+    default: 'default',
+    highlight: 'highlight',
+    warn: 'warn',
+    默认: 'default',
+    高亮: 'highlight',
+    警示: 'warn'
+  }
+  const variantMap: Record<string, 'default' | 'danger' | 'highlight'> = {
+    default: 'default',
+    danger: 'danger',
+    highlight: 'highlight',
+    默认: 'default',
+    危险: 'danger',
+    高亮: 'highlight'
+  }
+
+  const threeYears = Array.isArray(out.未来三年大势) ? (out.未来三年大势 as Array<Record<string, unknown>>) : []
+  const threeMapped = threeYears.slice(0, 3).map((item) => ({
+    ...defaultYearItem,
+    ...(typeof item === 'object' && item !== null ? item : {}),
+    级别样式: levelStyleMap[String((item as Record<string, unknown>)?.级别样式 ?? '')] ?? 'default',
+  }))
+  while (threeMapped.length < 3) threeMapped.push({ ...defaultYearItem })
+  out.未来三年大势 = threeMapped
+
+  const fourSeasons = Array.isArray(out.流月战术节奏) ? (out.流月战术节奏 as Array<Record<string, unknown>>) : []
+  const fourMapped = fourSeasons.slice(0, 4).map((item) => ({
+    ...defaultMonthItem,
+    ...(typeof item === 'object' && item !== null ? item : {}),
+    variant: variantMap[String((item as Record<string, unknown>)?.variant ?? '')] ?? 'default',
+  }))
+  while (fourMapped.length < 4) fourMapped.push({ ...defaultMonthItem })
+  out.流月战术节奏 = fourMapped
+
+  return out
+}

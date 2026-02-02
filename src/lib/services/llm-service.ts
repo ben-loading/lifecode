@@ -15,9 +15,11 @@ export interface LLMOptions {
   responseFormat?: { type: string }
   /** 可选：DeepSeek 模型名（当 provider=deepseek 时优先使用） */
   deepseekModel?: string
+  /** 可选：请求超时毫秒数，未传则使用默认 3 分钟 */
+  timeoutMs?: number
 }
 
-const REQUEST_TIMEOUT_MS = 3 * 60 * 1000
+const DEFAULT_TIMEOUT_MS = 3 * 60 * 1000
 
 /**
  * 校验 LLM 是否已配置（用于发起报告前检查，避免扣费后生成失败）
@@ -67,11 +69,12 @@ export async function callLLM(
   options: LLMOptions = {}
 ): Promise<string> {
   const { provider, apiKey, baseURL } = getProviderConfig()
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
 
   const client = new OpenAI({
     apiKey,
     baseURL,
-    timeout: REQUEST_TIMEOUT_MS
+    timeout: timeoutMs
   })
 
   // 模型名必须与当前 API 厂商一致（与 getProviderConfig 判定相同）

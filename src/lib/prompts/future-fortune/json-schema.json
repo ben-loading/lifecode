@@ -1,0 +1,85 @@
+{
+  "type": "object",
+  "required": ["命格锚点", "去年运势复盘", "本年核心攻略", "未来三年大势", "流月战术节奏"],
+  "properties": {
+    "命格锚点": {
+      "type": "object",
+      "required": ["人生点题", "时间坐标", "当前大运", "当前大运简评"],
+      "properties": {
+        "人生点题": { "type": "string" },
+        "时间坐标": { "type": "string" },
+        "当前大运": { "type": "string" },
+        "当前大运简评": { "type": "string" }
+      }
+    },
+    "去年运势复盘": {
+      "type": "object",
+      "required": ["年份关键词", "深度体感与事件验证", "极有可能发生"],
+      "properties": {
+        "年份关键词": { "type": "string" },
+        "深度体感与事件验证": { "type": "string" },
+        "极有可能发生": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "本年核心攻略": {
+      "type": "object",
+      "required": ["副标题", "年度总象标题", "警报文案", "财富实战", "情感实战", "事业实战"],
+      "properties": {
+        "副标题": { "type": "string" },
+        "年度总象标题": { "type": "string" },
+        "警报文案": { "type": "string" },
+        "财富实战": {
+          "type": "object",
+          "required": ["流年信号", "行动指南"],
+          "properties": { "流年信号": { "type": "string" }, "行动指南": { "type": "string" } }
+        },
+        "情感实战": {
+          "type": "object",
+          "required": ["流年信号", "行动指南"],
+          "properties": { "流年信号": { "type": "string" }, "行动指南": { "type": "string" } }
+        },
+        "事业实战": {
+          "type": "object",
+          "required": ["流年信号", "行动指南"],
+          "properties": {
+            "流年信号": { "type": "string" },
+            "行动指南": { "type": "string" },
+            "策略补充": { "type": "string" }
+          }
+        }
+      }
+    },
+    "未来三年大势": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["年份标题", "级别", "级别样式", "描述"],
+        "properties": {
+          "年份标题": { "type": "string" },
+          "级别": { "type": "string" },
+          "级别样式": { "type": "string", "enum": ["default", "highlight", "warn"] },
+          "描述": { "type": "string" }
+        }
+      }
+    },
+    "流月战术节奏": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "required": ["season", "stems", "stars", "summary", "description", "variant"],
+        "properties": {
+          "season": { "type": "string" },
+          "stems": { "type": "string" },
+          "stars": { "type": "string" },
+          "summary": { "type": "string" },
+          "description": { "type": "string" },
+          "variant": { "type": "string", "enum": ["default", "danger", "highlight"] }
+        }
+      }
+    }
+  }
+}

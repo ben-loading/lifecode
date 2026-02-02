@@ -78,17 +78,17 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
 
   return (
     <>
-      {/* Overlay - Fixed positioning to cover everything including header */}
+      {/* Overlay - 覆盖整页（含顶部人生解码栏），保持一致性 */}
       <div
-        className={`fixed inset-0 bg-black/30 z-40 transition-opacity duration-300 ${
+        className={`fixed inset-0 bg-black/30 z-[60] transition-opacity duration-300 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
       />
 
-      {/* Menu Panel - Slide animation */}
+      {/* Menu Panel - Slide animation，在蒙层之上 */}
       <div
-        className={`fixed left-0 top-0 h-full w-72 bg-background border-r border-border z-50 flex flex-col transition-transform duration-300 ease-out ${
+        className={`fixed left-0 top-0 h-full w-72 bg-background border-r border-border z-[70] flex flex-col transition-transform duration-300 ease-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

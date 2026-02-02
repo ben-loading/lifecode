@@ -4,7 +4,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import type { ApiUser, ApiArchive, ApiReportJob, ApiMainReport } from '@/lib/types/api'
+import type { ApiUser, ApiArchive, ApiReportJob, ApiMainReport, ApiDeepReportJob, ApiDeepReport } from '@/lib/types/api'
 import type { CreateArchiveBody } from '@/lib/types/api'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -406,4 +406,126 @@ export async function getRedemptionCode(code: string): Promise<RedemptionCodeRec
 export async function redeemCode(code: string, userId: string): Promise<void> {
   const client = getClient()
   await client.from('RedemptionCode').update({ usedBy: userId, usedAt: new Date().toISOString() }).eq('code', code.toUpperCase())
+}
+
+// ==================== DeepReport ====================
+
+export async function getDeepReportByArchiveAndType(archiveId: string, reportType: string): Promise<ApiDeepReport | null> {
+  const client = getClient()
+  const { data, error } = await client
+    .from('DeepReport')
+    .select('*')
+    .eq('archiveId', archiveId)
+    .eq('reportType', reportType)
+    .single()
+  if (error || !data) return null
+  return {
+    archiveId: data.archiveId as string,
+    reportType: data.reportType as string,
+    content: (data.content ?? {}) as Record<string, unknown>,
+    createdAt: (data.createdAt as string).replace('Z', '').slice(0, 19),
+  }
+}
+
+export async function createDeepReport(archiveId: string, reportType: string, content: Record<string, unknown>): Promise<void> {
+  const client = getClient()
+  const now = new Date().toISOString()
+  const { error } = await client.from('DeepReport').upsert(
+    {
+      id: crypto.randomUUID(),
+      archiveId,
+      reportType,
+      content,
+      updatedAt: now,
+    },
+    { onConflict: 'archiveId,reportType' }
+  )
+  if (error) {
+    console.error('[db] createDeepReport failed:', error.message, 'code:', error.code, 'archiveId:', archiveId, 'reportType:', reportType)
+    throw new Error(`写入深度报告失败: ${error.message}`)
+  }
+}
+
+// ==================== DeepReportJob ====================
+
+function rowToDeepReportJob(row: Record<string, unknown>): ApiDeepReportJob {
+  return {
+    jobId: row.id as string,
+    archiveId: row.archiveId as string,
+    reportType: row.reportType as string,
+    status: row.status as ApiDeepReportJob['status'],
+    currentStep: row.currentStep as number | undefined,
+    totalSteps: row.totalSteps as number | undefined,
+    stepLabel: row.stepLabel as string | undefined,
+    completedAt: row.completedAt ? (row.completedAt as string).replace('Z', '').slice(0, 19) : undefined,
+    error: row.error as string | undefined,
+  }
+}
+
+export async function getDeepReportJobById(jobId: string): Promise<ApiDeepReportJob | null> {
+  const client = getClient()
+  const { data, error } = await client.from('DeepReportJob').select('*').eq('id', jobId).single()
+  if (error || !data) return null
+  return rowToDeepReportJob(data)
+}
+
+export async function getRunningDeepReportJobForArchive(archiveId: string, reportType: string): Promise<ApiDeepReportJob | null> {
+  const client = getClient()
+  const { data, error } = await client
+    .from('DeepReportJob')
+    .select('*')
+    .eq('archiveId', archiveId)
+    .eq('reportType', reportType)
+    .in('status', ['running', 'processing'])
+    .order('createdAt', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error || !data) return null
+  return rowToDeepReportJob(data)
+}
+
+/** 该档案+类型下最新一条深度报告任务（任意状态），用于判断是否可免费重试 */
+export async function getLastDeepReportJobForArchive(archiveId: string, reportType: string): Promise<ApiDeepReportJob | null> {
+  const client = getClient()
+  const { data, error } = await client
+    .from('DeepReportJob')
+    .select('*')
+    .eq('archiveId', archiveId)
+    .eq('reportType', reportType)
+    .order('createdAt', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error || !data) return null
+  return rowToDeepReportJob(data)
+}
+
+export async function createDeepReportJob(archiveId: string, reportType: string, status: string, stepLabel?: string): Promise<string> {
+  const client = getClient()
+  const now = new Date().toISOString()
+  const id = crypto.randomUUID()
+  const { data, error } = await client
+    .from('DeepReportJob')
+    .insert({
+      id,
+      archiveId,
+      reportType,
+      status,
+      currentStep: 0,
+      totalSteps: 4,
+      stepLabel: stepLabel ?? '准备输入',
+      createdAt: now,
+      updatedAt: now,
+    })
+    .select('id')
+    .single()
+  if (error) throw new Error(`创建深度报告任务失败: ${error.message}`)
+  return (data?.id as string) ?? id
+}
+
+export async function updateDeepReportJob(
+  jobId: string,
+  updates: Partial<{ status: string; currentStep: number; totalSteps: number; stepLabel: string | null; error: string; completedAt: string }>
+): Promise<void> {
+  const client = getClient()
+  await client.from('DeepReportJob').update({ ...updates, updatedAt: new Date().toISOString() }).eq('id', jobId)
 }

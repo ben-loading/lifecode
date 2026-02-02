@@ -1,18 +1,20 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { PaymentDialog } from '@/components/payment-dialog'
 import { ReservationDialog } from '@/components/reservation-dialog'
 import { TopUpDialog } from '@/components/topup-dialog'
 import { useAppContext } from '@/lib/context'
-import { unlockDeepReport, getSession } from '@/lib/api-client'
+import { createDeepReportJob, getSession, getDeepReportArchiveStatus } from '@/lib/api-client'
+import { toast } from 'sonner'
 import { DEEP_REPORT_COST } from '@/lib/costs'
 import { InsufficientBalanceDialog } from '@/components/insufficient-balance-dialog'
 
 type TabType = '深度报告' | '真人1V1' | 'AI解答'
+type DeepItemStatus = 'none' | 'generating' | 'completed' | 'failed'
 
 const deepReports = [
   { id: 1, slug: 'future-fortune', title: '未来运势', description: '验证前年，深度分析未来5年明年的整体运势及趋势。', energy: 200 },
@@ -21,7 +23,13 @@ const deepReports = [
   { id: 4, slug: 'love-marriage', title: '爱情姻缘', description: '撮合个人的爱情场景，提升个人的感情处理方式，感知另一半。', energy: 200 },
 ]
 
-export function DeepReadingPage({ archiveName }: { archiveName?: string }) {
+export function DeepReadingPage({
+  archiveName,
+  archiveLoading = false,
+}: {
+  archiveName?: string
+  archiveLoading?: boolean
+}) {
   const router = useRouter()
   const { user, balance, setBalance } = useAppContext()
   const currentArchiveId = user.currentArchiveId
@@ -32,30 +40,75 @@ export function DeepReadingPage({ archiveName }: { archiveName?: string }) {
   const [showInsufficient, setShowInsufficient] = useState(false)
   const [showTopUp, setShowTopUp] = useState(false)
   const [unlockLoading, setUnlockLoading] = useState<string | null>(null)
+  const [statusMap, setStatusMap] = useState<Record<string, { status: DeepItemStatus; jobId?: string }>>({})
+  const [statusLoading, setStatusLoading] = useState(false)
   const [reservationNumber] = useState('123456')
   const [expiryDate] = useState('2026/01/28 14:00')
 
-  const handleUnlockDeepReport = async (reportSlug: string) => {
+  const fetchStatus = useCallback(async () => {
+    if (!currentArchiveId) return
+    setStatusLoading(true)
+    try {
+      const map = await getDeepReportArchiveStatus(currentArchiveId)
+      setStatusMap(map)
+    } catch {
+      setStatusMap({})
+    } finally {
+      setStatusLoading(false)
+    }
+  }, [currentArchiveId])
+
+  useEffect(() => {
+    fetchStatus()
+  }, [fetchStatus])
+
+  const getButtonState = (reportSlug: string) => {
+    const item = statusMap[reportSlug]
+    if (unlockLoading === reportSlug) return { label: '解读中…', disabled: true }
+    if (!item) return { label: '解读', disabled: false }
+    if (item.status === 'generating') return { label: '解读中…', disabled: true }
+    if (item.status === 'completed') return { label: '查看报告', disabled: false }
+    if (item.status === 'failed') return { label: '重新生成', disabled: false }
+    return { label: '解读', disabled: false }
+  }
+
+  const handleDeepReportAction = async (reportSlug: string) => {
+    const item = statusMap[reportSlug]
+    // 已完成：直接打开报告页，不触发扣费/充值弹窗
+    if (item?.status === 'completed') {
+      router.push(`/deep-reading/${reportSlug}?archiveId=${currentArchiveId}`)
+      return
+    }
     if (!currentArchiveId) {
       setShowInsufficient(true)
       return
     }
-    if (balance < DEEP_REPORT_COST) {
+    const isRetry = item?.status === 'failed'
+    if (!isRetry && balance < DEEP_REPORT_COST) {
       setShowInsufficient(true)
       return
     }
     setUnlockLoading(reportSlug)
     try {
-      const res = await unlockDeepReport(currentArchiveId, reportSlug)
-      setBalance(res.balance)
-      router.push(`/deep-reading/${reportSlug}`)
+      const res = await createDeepReportJob(currentArchiveId, reportSlug, isRetry)
+      const session = await getSession().catch(() => null)
+      if (session?.user) setBalance(session.user.balance)
+      await fetchStatus()
+      if (res.status === 'completed') {
+        toast.success('解读完成，可点击「查看报告」')
+      } else {
+        toast.error('解读失败，可点击「重新生成」免费重试')
+      }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : ''
+      const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('402') || msg.includes('不足') || msg.includes('INSUFFICIENT')) {
         const session = await getSession().catch(() => null)
         if (session?.user) setBalance(session.user.balance)
         setShowInsufficient(true)
+      } else {
+        toast.error(msg || '解读失败，请稍后再试')
       }
+      await fetchStatus()
     } finally {
       setUnlockLoading(null)
     }
@@ -117,21 +170,33 @@ export function DeepReadingPage({ archiveName }: { archiveName?: string }) {
         </div>
       </header>
 
-      {/* Content */}
+      {/* Content：档案名 + 4 类状态未就绪时整块 loading */}
       <div className="flex-1 overflow-y-auto px-5 py-6 space-y-4">
-        {/* Archive Info */}
-        <div className="flex items-center justify-between py-3 border-b border-border">
-          <div>
-            <p className="text-xs text-muted-foreground mb-0.5">解读档案</p>
-            <p className="text-sm font-medium text-foreground">#{archiveName || 'KC小可爱'}</p>
-          </div>
-          <button className="text-muted-foreground hover:text-foreground transition-colors">
-            ↗
-          </button>
-        </div>
+        {(() => {
+          const contentLoading = !currentArchiveId || archiveLoading || statusLoading
+          if (contentLoading) {
+            return (
+              <div className="flex flex-col items-center justify-center py-16 gap-4">
+                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-muted-foreground">加载中…</p>
+              </div>
+            )
+          }
+          return (
+            <>
+              {/* Archive Info */}
+              <div className="flex items-center justify-between py-3 border-b border-border">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-0.5">解读档案</p>
+                  <p className="text-sm font-medium text-foreground">#{archiveName || '档案'}</p>
+                </div>
+                <button className="text-muted-foreground hover:text-foreground transition-colors">
+                  ↗
+                </button>
+              </div>
 
-        {/* Tab Content */}
-        {activeTab === '深度报告' && (
+              {/* Tab Content */}
+              {activeTab === '深度报告' && (
           <div className="space-y-3">
             {deepReports.map((report) => (
               <div
@@ -147,14 +212,25 @@ export function DeepReadingPage({ archiveName }: { archiveName?: string }) {
 
                   {/* Footer */}
                   <div className="flex items-center justify-between pt-2">
-                    <span className="text-xs text-primary font-medium">{report.energy}能量</span>
-                    <button
-                      onClick={() => handleUnlockDeepReport(report.slug)}
-                      disabled={unlockLoading === report.slug}
-                      className="px-4 py-1.5 bg-primary text-primary-foreground rounded-full text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {unlockLoading === report.slug ? '解锁中…' : '解锁并查看'}
-                    </button>
+                    {(() => {
+                      const st = statusMap[report.slug]?.status
+                      const showEnergy = !st || st === 'none' || st === 'failed'
+                      const btn = getButtonState(report.slug)
+                      return (
+                        <>
+                          <span className="text-xs text-primary font-medium">
+                            {showEnergy ? `${report.energy}能量` : st === 'generating' ? '生成中' : ''}
+                          </span>
+                          <button
+                            onClick={() => handleDeepReportAction(report.slug)}
+                            disabled={btn.disabled}
+                            className="px-4 py-1.5 bg-primary text-primary-foreground rounded-full text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {btn.label}
+                          </button>
+                        </>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>
@@ -254,6 +330,9 @@ export function DeepReadingPage({ archiveName }: { archiveName?: string }) {
             </div>
           </div>
         )}
+            </>
+          )
+        })()}
       </div>
 
       {/* Payment Dialog */}
@@ -278,6 +357,10 @@ export function DeepReadingPage({ archiveName }: { archiveName?: string }) {
       <TopUpDialog
         isOpen={showTopUp}
         onClose={() => setShowTopUp(false)}
+        onSuccess={async () => {
+          const session = await getSession().catch(() => null)
+          if (session?.user) setBalance(session.user.balance)
+        }}
       />
 
       <ReservationDialog

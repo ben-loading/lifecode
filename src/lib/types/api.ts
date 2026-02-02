@@ -89,3 +89,27 @@ export interface CreateArchiveBody {
 export interface CreateReportJobBody {
   archiveId: string
 }
+
+/** 深度报告任务状态（与主报告一致） */
+export type DeepReportJobStatus = 'pending' | 'running' | 'processing' | 'completed' | 'failed'
+
+/** 深度报告任务（轮询 status 时返回） */
+export interface ApiDeepReportJob {
+  jobId: string
+  archiveId: string
+  reportType: string
+  status: DeepReportJobStatus
+  currentStep?: number
+  totalSteps?: number
+  stepLabel?: string
+  completedAt?: string
+  error?: string
+}
+
+/** 深度报告（按 archiveId + reportType 查询） */
+export interface ApiDeepReport {
+  archiveId: string
+  reportType: string
+  content: Record<string, unknown>
+  createdAt: string
+}

@@ -47,7 +47,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${notoSerifSC.variable} ${inter.variable} font-serif antialiased`}>
         <AppProvider>
-          {children}
+          {/* 滚动发生在此层，弹窗锁 body 时不会导致整页左右移位 */}
+          <div className="h-full min-h-screen overflow-y-auto overflow-x-hidden">
+            {children}
+          </div>
         </AppProvider>
         <Analytics />
       </body>

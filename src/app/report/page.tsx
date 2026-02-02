@@ -639,6 +639,7 @@ function ReportPageContent() {
             </section>
           ) : (
             <>
+          <div className="pb-28 space-y-8">
           {/* User Info Section */}
           <section className="text-center space-y-3">
             <h1 className="text-2xl tracking-[0.2em] font-semibold">{(archiveDisplayName ?? user.archiveName) || '档案'}</h1>
@@ -977,9 +978,10 @@ function ReportPageContent() {
               </CardContent>
             </Card>
           </section>
+          </div>
 
-          {/* Footer Actions */}
-          <section className="pt-6 pb-4 space-y-4">
+          {/* 底部悬浮：分享一下 + 深度解读 */}
+          <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-sm border-t border-border max-w-md mx-auto px-5 py-4 safe-area-pb">
             <div className="flex gap-3">
               <Button
                 onClick={() => setShowShareDialog(true)}
@@ -997,7 +999,7 @@ function ReportPageContent() {
                 深度解读
               </Button>
             </div>
-          </section>
+          </div>
             </>
           )}
         </div>
