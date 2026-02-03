@@ -24,7 +24,8 @@ import { useAppContext } from '@/lib/context'
 import { useState, useEffect } from 'react'
 import { SideMenu } from '@/components/side-menu'
 import { ShareDialog } from '@/components/share-dialog'
-import { getReportJobStatus, getMainReport, getReportArchiveStatus, createReportJob, createReportJobRetry, getArchive } from '@/lib/api-client'
+import { getReportJobStatus, createReportJob, createReportJobRetry } from '@/lib/api-client'
+import { getMainReportCached, getReportArchiveStatusCached, getArchiveCached, invalidateMainReport } from '@/lib/api-cache'
 import type { ApiMainReport } from '@/lib/types/api'
 
 // 分析步骤：与后端流程对应（时辰→八字→排盘→先天→大限/流年→输出），前端用计时驱动，不依赖轮询步进
@@ -137,7 +138,8 @@ function ReportPageContent() {
         if (cancelled) return
         if (job.status === 'completed') {
           setGenerationError(null)
-          const report = await getMainReport(archiveId)
+          invalidateMainReport(archiveId)
+          const report = await getMainReportCached(archiveId)
           if (cancelled) return
           if (report) {
             setMainReport(report)
@@ -191,7 +193,7 @@ function ReportPageContent() {
       setMainReport(null)
       setReportFetchedForArchiveId(effectiveArchiveId)
     }, FETCH_STATUS_TIMEOUT_MS)
-    getReportArchiveStatus(effectiveArchiveId).then(({ report, runningJob }) => {
+    getReportArchiveStatusCached(effectiveArchiveId).then(({ report, runningJob }) => {
       if (cancelled) return
       clearTimeout(timeoutId)
       if (report) {
@@ -225,7 +227,7 @@ function ReportPageContent() {
       return
     }
     let cancelled = false
-    getArchive(effectiveArchiveId)
+    getArchiveCached(effectiveArchiveId)
       .then((archive) => {
         if (!cancelled) setArchiveDisplayName(archive.name ?? null)
       })

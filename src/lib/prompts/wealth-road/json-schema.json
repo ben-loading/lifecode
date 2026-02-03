@@ -1,0 +1,87 @@
+{
+  "type": "object",
+  "required": ["财富格局总定调", "投资理财", "大运财富列表", "年度财运推演", "财富漏洞与动荡", "财富年度总结"],
+  "properties": {
+    "财富格局总定调": {
+      "type": "object",
+      "required": ["财富能量级", "财富能量级简评", "核心驱动引擎"],
+      "properties": {
+        "财富能量级": { "type": "string" },
+        "财富能量级简评": { "type": "string" },
+        "核心驱动引擎": { "type": "string" }
+      }
+    },
+    "投资理财": {
+      "type": "object",
+      "required": ["投资风格评级", "投资风格说明", "适合的资产种类", "避坑指南"],
+      "properties": {
+        "投资风格评级": { "type": "string" },
+        "投资风格说明": { "type": "string" },
+        "适合的资产种类": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["名称", "推荐指数", "建议", "逻辑支撑"],
+            "properties": {
+              "名称": { "type": "string" },
+              "推荐指数": { "type": "number" },
+              "建议": { "type": "string" },
+              "逻辑支撑": { "type": "string" },
+              "操作策略": { "type": "string" }
+            }
+          }
+        },
+        "避坑指南": { "type": "string" }
+      }
+    },
+    "大运财富列表": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["区间", "岁数", "干支", "宫位", "财富总评分", "趋势波动指数", "核心策略", "关键解读"],
+        "properties": {
+          "区间": { "type": "string" },
+          "岁数": { "type": "string" },
+          "干支": { "type": "string" },
+          "宫位": { "type": "string" },
+          "财富总评分": { "type": "number" },
+          "趋势波动指数": { "type": "array", "items": { "type": "number" }, "minItems": 5, "maxItems": 10 },
+          "核心策略": { "type": "string" },
+          "关键解读": { "type": "string" }
+        }
+      }
+    },
+    "年度财运推演": {
+      "type": "object",
+      "required": ["求财重心", "财运能量流", "总体趋势", "进财爆发月", "破财高危月"],
+      "properties": {
+        "求财重心": { "type": "string" },
+        "财运能量流": { "type": "array", "items": { "type": "number" }, "minItems": 12, "maxItems": 12 },
+        "总体趋势": { "type": "string" },
+        "进财爆发月": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 },
+        "破财高危月": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 }
+      }
+    },
+    "财富漏洞与动荡": {
+      "type": "object",
+      "required": ["最大的耗财黑洞", "二零二六特定风险", "止损方案"],
+      "properties": {
+        "最大的耗财黑洞": { "type": "string" },
+        "二零二六特定风险": { "type": "string" },
+        "止损方案": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "财富年度总结": {
+      "type": "object",
+      "required": ["正文", "现金流评分", "资产置换机遇评分", "最终建议"],
+      "properties": {
+        "正文": { "type": "string" },
+        "现金流评分": { "type": "number" },
+        "资产置换机遇评分": { "type": "number" },
+        "最终建议": { "type": "string" }
+      }
+    }
+  }
+}

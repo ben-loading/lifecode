@@ -7,7 +7,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { astro } from 'iztro'
 import { Card, CardContent } from '@/components/ui/card'
 import { getLongitudeByRegion, getSolarTimeOffsetMinutes } from '@/lib/birth-constants'
-import { getArchive, listArchives } from '@/lib/api-client'
+import { getArchiveCached, listArchivesCached } from '@/lib/api-cache'
 import type { ApiArchive } from '@/lib/types/api'
 
 /** 阳历小时(0-23) 转 iztro 时辰序号 0~12（0=早子 00-01, 12=晚子 23-00） */
@@ -83,15 +83,15 @@ export default function ZiweiChartPage() {
     const load = async () => {
       try {
         if (user.currentArchiveId) {
-          const a = await getArchive(user.currentArchiveId)
+          const a = await getArchiveCached(user.currentArchiveId)
           setArchive(a)
           return
         }
-        const list = await listArchives()
+        const list = await listArchivesCached()
         if (list?.length) setArchive(list[0])
         else setArchive(null)
       } catch {
-        const list = await listArchives().catch(() => [])
+        const list = await listArchivesCached().catch(() => [])
         if (list?.length) setArchive(list[0])
         else setArchive(null)
       } finally {

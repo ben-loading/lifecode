@@ -76,6 +76,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: msg }, { status: 503 })
     }
 
+    // 扣费前再查一次：防止并发或前一步误判导致重复扣费、重复生成
+    const existingReportAgain = await getDeepReportByArchiveAndType(archiveId, reportType)
+    if (existingReportAgain) {
+      return NextResponse.json({ error: '该深度报告已生成', code: 'REPORT_ALREADY_EXISTS' }, { status: 400 })
+    }
+
     if (!canRetryWithoutCharge) {
       await updateUserBalance(userId, -DEEP_REPORT_COST)
       await createTransaction(userId, {

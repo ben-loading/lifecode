@@ -88,9 +88,10 @@ export function ShareDialog({
       ctx.font = '20px system-ui'
       ctx.fillText('核心能力', 400, 500)
 
-      // 绘制核心能力文字（多行）
+      // 绘制核心能力文字（多行，居中排版）
       ctx.fillStyle = '#666'
       ctx.font = '22px system-ui'
+      ctx.textAlign = 'center'
       const maxWidth = 600
       const lineHeight = 36
       const words = coreAbility.split('')
@@ -162,7 +163,7 @@ export function ShareDialog({
               {/* Core Ability */}
               <div className="space-y-2 pt-4 max-w-xs">
                 <p className="text-xs text-muted-foreground tracking-wider">核心能力</p>
-                <p className="text-sm text-foreground/80 leading-relaxed text-left">{coreAbility}</p>
+                <p className="text-sm text-foreground/80 leading-relaxed text-center">{coreAbility}</p>
               </div>
             </div>
           </div>

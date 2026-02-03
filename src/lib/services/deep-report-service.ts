@@ -4,18 +4,44 @@
  */
 
 import { getArchiveById, getMainReportByArchiveId, createDeepReport } from '@/lib/db'
-import { buildFutureFortunePrompt } from './prompt-builder'
+import { buildFutureFortunePrompt, buildCareerPathPrompt, buildWealthRoadPrompt, buildLoveMarriagePrompt } from './prompt-builder'
 import { callLLM } from './llm-service'
 import {
   extractJsonFromResponse,
   repairTruncatedJson,
   FutureFortuneReportSchema,
   normalizeFutureFortuneOutput,
+  CareerPathReportSchema,
+  normalizeCareerPathOutput,
+  WealthRoadReportSchema,
+  normalizeWealthRoadOutput,
+  LoveMarriageReportSchema,
+  normalizeLoveMarriageOutput,
   type ValidatedFutureFortuneReport,
+  type ValidatedCareerPathReport,
+  type ValidatedWealthRoadReport,
+  type ValidatedLoveMarriageReport,
 } from './report-validator'
 import type { DeepReportType } from '@/lib/costs'
 
+const REPORT_TYPE_LABELS: Record<DeepReportType, string> = {
+  'future-fortune': '未来运势',
+  'career-path': '仕途探索',
+  'wealth-road': '财富之路',
+  'love-marriage': '爱情姻缘',
+}
+
 export async function generateDeepReport(archiveId: string, reportType: DeepReportType): Promise<Record<string, unknown>> {
+  const raw = typeof reportType === 'string' ? reportType.trim() : ''
+  const normalizedType: DeepReportType =
+    raw === 'future-fortune' ? 'future-fortune'
+    : raw === 'career-path' ? 'career-path'
+    : raw === 'wealth-road' ? 'wealth-road'
+    : raw === 'love-marriage' ? 'love-marriage'
+    : (() => {
+        throw new Error(`Unsupported deep report type: ${reportType}`)
+      })()
+
   const archive = await getArchiveById(archiveId)
   if (!archive) throw new Error(`Archive not found: ${archiveId}`)
 
@@ -26,13 +52,27 @@ export async function generateDeepReport(archiveId: string, reportType: DeepRepo
   let userMessage: string
   let config: { model: string; deepseekModel?: string; temperature: number; maxTokens: number; responseFormat?: { type: string } }
 
-  if (reportType === 'future-fortune') {
+  if (normalizedType === 'future-fortune') {
     const built = await buildFutureFortunePrompt(archiveId)
     systemPrompt = built.systemPrompt
     userMessage = built.userMessage
     config = built.config
+  } else if (normalizedType === 'career-path') {
+    const built = await buildCareerPathPrompt(archiveId)
+    systemPrompt = built.systemPrompt
+    userMessage = built.userMessage
+    config = built.config
+  } else if (normalizedType === 'wealth-road') {
+    const built = await buildWealthRoadPrompt(archiveId)
+    systemPrompt = built.systemPrompt
+    userMessage = built.userMessage
+    config = built.config
   } else {
-    throw new Error(`Unsupported deep report type: ${reportType}`)
+    // love-marriage
+    const built = await buildLoveMarriagePrompt(archiveId)
+    systemPrompt = built.systemPrompt
+    userMessage = built.userMessage
+    config = built.config
   }
 
   const llmResponse = await callLLM(systemPrompt, userMessage, {
@@ -44,6 +84,7 @@ export async function generateDeepReport(archiveId: string, reportType: DeepRepo
     timeoutMs: 5 * 60 * 1000, // 深度报告内容多，给 5 分钟超时
   })
 
+  const label = REPORT_TYPE_LABELS[normalizedType] ?? normalizedType
   let parsedContent: unknown
   let jsonStr = extractJsonFromResponse(llmResponse)
   try {
@@ -52,25 +93,73 @@ export async function generateDeepReport(archiveId: string, reportType: DeepRepo
     try {
       jsonStr = repairTruncatedJson(jsonStr)
       parsedContent = JSON.parse(jsonStr)
-    } catch (repairErr) {
+    } catch {
       const msg = parseErr instanceof Error ? parseErr.message : String(parseErr)
       const snippet = typeof llmResponse === 'string' ? llmResponse.slice(0, 600) : ''
       console.error('[deep-report] Parse failed:', msg, 'LLM response snippet:', snippet)
-      throw new Error(`未来运势解析失败：${msg}`)
+      throw new Error(`${label}解析失败：${msg}`)
     }
   }
 
-  const normalized = normalizeFutureFortuneOutput(parsedContent)
-  let validatedContent: ValidatedFutureFortuneReport
-  try {
-    validatedContent = FutureFortuneReportSchema.parse(normalized) as ValidatedFutureFortuneReport
-  } catch (validateErr) {
-    const msg = validateErr instanceof Error ? validateErr.message : String(validateErr)
-    console.error('[deep-report] Schema validation failed:', msg, 'normalized keys:', Object.keys(normalized as object))
-    throw new Error(`未来运势校验失败：${msg}`)
+  if (normalizedType === 'future-fortune') {
+    const normalized = normalizeFutureFortuneOutput(parsedContent)
+    let validatedContent: ValidatedFutureFortuneReport
+    try {
+      validatedContent = FutureFortuneReportSchema.parse(normalized) as ValidatedFutureFortuneReport
+    } catch (validateErr) {
+      const msg = validateErr instanceof Error ? validateErr.message : String(validateErr)
+      console.error('[deep-report] Schema validation failed:', msg, 'normalized keys:', Object.keys(normalized as object))
+      throw new Error(`${label}校验失败：${msg}`)
+    }
+    const content = validatedContent as unknown as Record<string, unknown>
+    await createDeepReport(archiveId, normalizedType, content)
+    return content
   }
 
-  const content = validatedContent as unknown as Record<string, unknown>
-  await createDeepReport(archiveId, reportType, content)
-  return content
+  if (normalizedType === 'career-path') {
+    const normalized = normalizeCareerPathOutput(parsedContent)
+    let validatedContent: ValidatedCareerPathReport
+    try {
+      validatedContent = CareerPathReportSchema.parse(normalized) as ValidatedCareerPathReport
+    } catch (validateErr) {
+      const msg = validateErr instanceof Error ? validateErr.message : String(validateErr)
+      console.error('[deep-report] Schema validation failed:', msg, 'normalized keys:', Object.keys(normalized as object))
+      throw new Error(`${label}校验失败：${msg}`)
+    }
+    const content = validatedContent as unknown as Record<string, unknown>
+    await createDeepReport(archiveId, normalizedType, content)
+    return content
+  }
+
+  if (normalizedType === 'wealth-road') {
+    const normalized = normalizeWealthRoadOutput(parsedContent)
+    let validatedContent: ValidatedWealthRoadReport
+    try {
+      validatedContent = WealthRoadReportSchema.parse(normalized) as ValidatedWealthRoadReport
+    } catch (validateErr) {
+      const msg = validateErr instanceof Error ? validateErr.message : String(validateErr)
+      console.error('[deep-report] Schema validation failed:', msg, 'normalized keys:', Object.keys(normalized as object))
+      throw new Error(`${label}校验失败：${msg}`)
+    }
+    const content = validatedContent as unknown as Record<string, unknown>
+    await createDeepReport(archiveId, normalizedType, content)
+    return content
+  }
+
+  if (normalizedType === 'love-marriage') {
+    const normalized = normalizeLoveMarriageOutput(parsedContent)
+    let validatedContent: ValidatedLoveMarriageReport
+    try {
+      validatedContent = LoveMarriageReportSchema.parse(normalized) as ValidatedLoveMarriageReport
+    } catch (validateErr) {
+      const msg = validateErr instanceof Error ? validateErr.message : String(validateErr)
+      console.error('[deep-report] Schema validation failed:', msg, 'normalized keys:', Object.keys(normalized as object))
+      throw new Error(`${label}校验失败：${msg}`)
+    }
+    const content = validatedContent as unknown as Record<string, unknown>
+    await createDeepReport(archiveId, normalizedType, content)
+    return content
+  }
+
+  throw new Error(`Unsupported deep report type: ${normalizedType}`)
 }

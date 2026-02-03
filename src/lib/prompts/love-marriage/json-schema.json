@@ -1,0 +1,132 @@
+{
+  "type": "object",
+  "required": ["核心情感模式", "正缘画像", "大运情感列表", "年度情感推演", "流月情感", "关键时间点", "情感年度总结"],
+  "properties": {
+    "核心情感模式": {
+      "type": "object",
+      "required": ["命理解析", "博弈地位", "博弈地位简评", "情感死穴"],
+      "properties": {
+        "命理解析": { "type": "string" },
+        "博弈地位": { "type": "string" },
+        "博弈地位简评": { "type": "string" },
+        "情感死穴": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "正缘画像": {
+      "type": "object",
+      "required": ["外貌气质", "职业圈层", "相遇高频地标", "互动剧本", "互动剧本说明"],
+      "properties": {
+        "外貌气质": { "type": "string" },
+        "职业圈层": { "type": "string" },
+        "相遇高频地标": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["名称", "五行标签", "简注"],
+            "properties": {
+              "名称": { "type": "string" },
+              "五行标签": { "type": "string" },
+              "简注": { "type": "string" }
+            }
+          }
+        },
+        "地标前言": { "type": "string" },
+        "互动剧本": { "type": "string" },
+        "互动剧本说明": { "type": "string" }
+      }
+    },
+    "大运情感列表": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["区间", "岁数", "干支", "幸福指数", "情感状态关键词", "关键解读"],
+        "properties": {
+          "区间": { "type": "string" },
+          "岁数": { "type": "string" },
+          "干支": { "type": "string" },
+          "幸福指数": { "type": "number" },
+          "情感状态关键词": { "type": "string" },
+          "关键解读": { "type": "string" }
+        }
+      }
+    },
+    "年度情感推演": {
+      "type": "object",
+      "required": ["流年天干", "流年地支", "核心象义", "单身", "有伴侣"],
+      "properties": {
+        "流年天干": { "type": "string" },
+        "流年地支": { "type": "string" },
+        "核心象义": { "type": "string" },
+        "单身": {
+          "type": "object",
+          "required": ["脱单概率", "命理依据", "艳遇坐标", "避坑警示"],
+          "properties": {
+            "脱单概率": { "type": "string" },
+            "命理依据": { "type": "string" },
+            "艳遇坐标": { "type": "string" },
+            "避坑警示": { "type": "string" }
+          }
+        },
+        "有伴侣": {
+          "type": "object",
+          "required": ["第三者入侵指数", "命理依据", "潜在危险来源", "维稳手段"],
+          "properties": {
+            "第三者入侵指数": { "type": "number" },
+            "命理依据": { "type": "string" },
+            "潜在危险来源": { "type": "string" },
+            "维稳手段": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "流月情感": {
+      "type": "object",
+      "required": ["激情燃烧月", "信任危机月"],
+      "properties": {
+        "激情燃烧月": {
+          "type": "object",
+          "required": ["月份", "说明"],
+          "properties": { "月份": { "type": "string" }, "说明": { "type": "string" } }
+        },
+        "信任危机月": {
+          "type": "object",
+          "required": ["月份", "说明"],
+          "properties": { "月份": { "type": "string" }, "说明": { "type": "string" } }
+        }
+      }
+    },
+    "关键时间点": {
+      "type": "object",
+      "required": ["容易结婚年份", "容易分手年份"],
+      "properties": {
+        "容易结婚年份": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["年份", "说明"],
+            "properties": { "年份": { "type": "string" }, "说明": { "type": "string" } }
+          }
+        },
+        "容易分手年份": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["年份", "说明"],
+            "properties": { "年份": { "type": "string" }, "说明": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "情感年度总结": {
+      "type": "object",
+      "required": ["正文", "说明", "军师建议"],
+      "properties": {
+        "正文": { "type": "string" },
+        "说明": { "type": "string" },
+        "军师建议": { "type": "string" }
+      }
+    }
+  }
+}

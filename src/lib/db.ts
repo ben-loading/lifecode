@@ -410,6 +410,11 @@ export async function redeemCode(code: string, userId: string): Promise<void> {
 
 // ==================== DeepReport ====================
 
+/**
+ * 按档案+类型取深度报告。使用 order+limit+maybeSingle 避免同一 (archiveId, reportType) 多行时
+ * .single() 报错导致返回 null。若存在多行取最新一条。
+ * 单行时返回 null 仅当 0 行或查询出错；出错时打日志便于排查「有报告却显示重新生成」的偶现问题。
+ */
 export async function getDeepReportByArchiveAndType(archiveId: string, reportType: string): Promise<ApiDeepReport | null> {
   const client = getClient()
   const { data, error } = await client
@@ -417,8 +422,14 @@ export async function getDeepReportByArchiveAndType(archiveId: string, reportTyp
     .select('*')
     .eq('archiveId', archiveId)
     .eq('reportType', reportType)
-    .single()
-  if (error || !data) return null
+    .order('createdAt', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) {
+    console.error('[db] getDeepReportByArchiveAndType error:', error.message, 'code:', error.code, 'archiveId:', archiveId, 'reportType:', reportType)
+    return null
+  }
+  if (!data) return null
   return {
     archiveId: data.archiveId as string,
     reportType: data.reportType as string,

@@ -17,7 +17,7 @@ export function InputPage() {
   const { user, setUser } = useAppContext()
   const [gender, setGender] = useState<'male' | 'female' | ''>('')
   const [birthCalendar, setBirthCalendar] = useState<CalendarType>('solar')
-  const [birthTimeMode, setBirthTimeMode] = useState<TimeMode>('datetime')
+  const [birthTimeMode, setBirthTimeMode] = useState<TimeMode>('shichen')
   const [birthDate, setBirthDate] = useState('')
   const [birthLocation, setBirthLocation] = useState('')
   const [birthTimeBranch, setBirthTimeBranch] = useState<number>(6) // 午时
@@ -180,16 +180,6 @@ export function InputPage() {
               </label>
               <div className="inline-flex p-1 bg-muted/30 rounded-lg">
                 <button
-                  onClick={() => setBirthTimeMode('datetime')}
-                  className={`px-4 h-9 rounded-md text-sm font-medium transition-all ${
-                    birthTimeMode === 'datetime' 
-                      ? 'bg-background text-foreground shadow-sm' 
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  具体时间
-                </button>
-                <button
                   onClick={() => setBirthTimeMode('shichen')}
                   className={`px-4 h-9 rounded-md text-sm font-medium transition-all ${
                     birthTimeMode === 'shichen' 
@@ -198,6 +188,16 @@ export function InputPage() {
                   }`}
                 >
                   时辰选择
+                </button>
+                <button
+                  onClick={() => setBirthTimeMode('datetime')}
+                  className={`px-4 h-9 rounded-md text-sm font-medium transition-all ${
+                    birthTimeMode === 'datetime' 
+                      ? 'bg-background text-foreground shadow-sm' 
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  具体时间
                 </button>
               </div>
               {useShichen && (

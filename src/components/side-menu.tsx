@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronLeft, LogOut, FileText } from 'lucide-react'
 
-const ARCHIVE_LIST_CACHE_MS = 60 * 1000 // 档案列表缓存 60 秒，减少侧栏重复请求
 import { useRouter } from 'next/navigation'
 import { useAppContext } from '@/lib/context'
-import { clearToken, listArchives } from '@/lib/api-client'
+import { clearToken } from '@/lib/api-client'
+import { listArchivesCached } from '@/lib/api-cache'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import type { ApiArchive } from '@/lib/types/api'
 import { TopUpDialog } from '@/components/topup-dialog'
@@ -26,27 +26,20 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
   const [showHistory, setShowHistory] = useState(false)
   const [archiveList, setArchiveList] = useState<ApiArchive[]>([])
   const [archiveListLoading, setArchiveListLoading] = useState(false)
-  const lastArchiveListFetchAt = useRef(0)
 
   useEffect(() => {
     if (!isOpen || !userEmail) {
       setArchiveListLoading(false)
       return
     }
-    const now = Date.now()
-    if (now - lastArchiveListFetchAt.current < ARCHIVE_LIST_CACHE_MS) {
-      return
-    }
-    lastArchiveListFetchAt.current = now
     setArchiveListLoading(true)
-    listArchives()
+    listArchivesCached()
       .then((list) => setArchiveList(list ?? []))
       .catch(() => setArchiveList([]))
       .finally(() => setArchiveListLoading(false))
   }, [isOpen, userEmail])
 
   const handleCreateNewArchive = () => {
-    lastArchiveListFetchAt.current = 0
     setUser((prev) => ({
       ...prev,
       archiveName: undefined,

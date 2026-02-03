@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { Card, CardContent } from '@/components/ui/card'
-import { getDeepReport } from '@/lib/api-client'
+import { getDeepReportCached } from '@/lib/api-cache'
 import type { FutureFortuneContent } from '@/lib/types/future-fortune-report'
 
 function FutureFortuneContentInner() {
@@ -22,7 +22,7 @@ function FutureFortuneContentInner() {
       return
     }
     let cancelled = false
-    getDeepReport(archiveId, 'future-fortune')
+    getDeepReportCached(archiveId, 'future-fortune')
       .then((report) => {
         if (cancelled) return
         if (report?.content) setContent(report.content as unknown as FutureFortuneContent)

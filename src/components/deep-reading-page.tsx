@@ -8,7 +8,8 @@ import { PaymentDialog } from '@/components/payment-dialog'
 import { ReservationDialog } from '@/components/reservation-dialog'
 import { TopUpDialog } from '@/components/topup-dialog'
 import { useAppContext } from '@/lib/context'
-import { createDeepReportJob, getSession, getDeepReportArchiveStatus } from '@/lib/api-client'
+import { createDeepReportJob, getSession } from '@/lib/api-client'
+import { getDeepReportArchiveStatusCached, invalidateDeepReport } from '@/lib/api-cache'
 import { toast } from 'sonner'
 import { DEEP_REPORT_COST } from '@/lib/costs'
 import { InsufficientBalanceDialog } from '@/components/insufficient-balance-dialog'
@@ -49,7 +50,7 @@ export function DeepReadingPage({
     if (!currentArchiveId) return
     setStatusLoading(true)
     try {
-      const map = await getDeepReportArchiveStatus(currentArchiveId)
+      const map = await getDeepReportArchiveStatusCached(currentArchiveId)
       setStatusMap(map)
     } catch {
       setStatusMap({})
@@ -95,6 +96,7 @@ export function DeepReadingPage({
       if (session?.user) setBalance(session.user.balance)
       await fetchStatus()
       if (res.status === 'completed') {
+        invalidateDeepReport(currentArchiveId, reportSlug)
         toast.success('解读完成，可点击「查看报告」')
       } else {
         toast.error('解读失败，可点击「重新生成」免费重试')
@@ -151,22 +153,30 @@ export function DeepReadingPage({
 
         {/* Tabs */}
         <div className="flex items-center justify-center gap-8 px-5 pb-3 border-b border-border">
-          {(['深度报告', '真人1V1', 'AI解答'] as TabType[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`py-2 text-sm font-medium transition-colors relative ${
-                activeTab === tab
-                  ? 'text-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {tab}
-              {activeTab === tab && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
-              )}
-            </button>
-          ))}
+          {(['深度报告', '真人1V1', 'AI解答'] as TabType[]).map((tab) => {
+            const isUnavailable = tab === '真人1V1' || tab === 'AI解答'
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`py-2 text-sm font-medium transition-colors relative flex items-center gap-1.5 ${
+                  activeTab === tab
+                    ? 'text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tab}
+                {isUnavailable && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-normal">
+                    未开放
+                  </span>
+                )}
+                {activeTab === tab && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+                )}
+              </button>
+            )
+          })}
         </div>
       </header>
 
@@ -214,17 +224,25 @@ export function DeepReadingPage({
                   <div className="flex items-center justify-between pt-2">
                     {(() => {
                       const st = statusMap[report.slug]?.status
+                      const isGenerating = st === 'generating' || unlockLoading === report.slug
                       const showEnergy = !st || st === 'none' || st === 'failed'
                       const btn = getButtonState(report.slug)
+                      const showGeneratingHint = isGenerating
                       return (
                         <>
-                          <span className="text-xs text-primary font-medium">
-                            {showEnergy ? `${report.energy}能量` : st === 'generating' ? '生成中' : ''}
+                          <span
+                            className={`text-xs max-w-[60%] text-left leading-tight ${showGeneratingHint ? 'text-foreground/70' : 'text-primary font-medium'}`}
+                          >
+                            {showGeneratingHint
+                              ? '全方位推演中，约一分钟，请静候'
+                              : showEnergy
+                                ? `${report.energy}能量`
+                                : ''}
                           </span>
                           <button
                             onClick={() => handleDeepReportAction(report.slug)}
                             disabled={btn.disabled}
-                            className="px-4 py-1.5 bg-primary text-primary-foreground rounded-full text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 py-1.5 bg-primary text-primary-foreground rounded-full text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                           >
                             {btn.label}
                           </button>
@@ -239,95 +257,26 @@ export function DeepReadingPage({
         )}
 
         {activeTab === '真人1V1' && (
-          <div className="space-y-4">
-            {/* Consultation Intro Card */}
-            <div className="border border-border rounded-lg p-4 space-y-3">
-              <div>
-                <h3 className="text-sm font-medium text-foreground mb-2">用温度化解心中的迷茫</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  加入人生编码Discord社区。在生理期前通过支付能力完成预约。咨询服务将以文字进行，咨询师完成后，咨询师会将解答大过程记录在你专属的记录档案，你可以随时查询。
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={handleViewHistory}
-                  className="flex-1 px-3 py-2 border border-border text-foreground rounded-lg text-xs font-medium hover:bg-muted/50 transition-colors"
-                >
-                  查看历史报告
-                </button>
-                <button
-                  onClick={handleJoinDiscord}
-                  className="flex-1 px-3 py-2 border border-border text-foreground rounded-lg text-xs font-medium hover:bg-muted/50 transition-colors"
-                >
-                  加入Discord
-                </button>
-                {!hasReservation ? (
-                  <button
-                    onClick={handlePayment}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:opacity-90 transition-opacity"
-                  >
-                    2000能量 预约
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleViewReservation}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:opacity-90 transition-opacity"
-                  >
-                    查看预约号
-                  </button>
-                )}
-              </div>
-            </div>
+          <div className="pt-12 pb-8 flex flex-col items-center justify-center">
+            <span className="block w-8 h-px bg-border mb-8" aria-hidden />
+            <p className="text-sm text-foreground/90 tracking-[0.2em] text-center">
+              该功能暂未开放
+            </p>
+            <p className="text-xs text-muted-foreground tracking-widest mt-3 text-center">
+              敬请期待
+            </p>
           </div>
         )}
 
         {activeTab === 'AI解答' && (
-          <div className="space-y-4">
-            {/* AI Card */}
-            <div className="border border-border rounded-lg p-4 space-y-3">
-              <div>
-                <h3 className="text-sm font-medium text-foreground mb-1">AI智能解答</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  基于你的运势数据，获得AI实时智能解答和建议指导
-                </p>
-              </div>
-
-              {/* Input Section */}
-              <div className="space-y-2 pt-1">
-                <input
-                  type="text"
-                  placeholder="输入你的问题..."
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary text-sm"
-                />
-                <button className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-opacity">
-                  提问
-                </button>
-              </div>
-
-              {/* Tips */}
-              <p className="text-xs text-muted-foreground pt-1">
-                每次提问消耗20能量
-              </p>
-            </div>
-
-            {/* Example Questions */}
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">常见问题</p>
-              {[
-                '我的财运在哪个方面最好？',
-                '如何改善我的人际关系？',
-                '今年的职业发展方向是什么？',
-              ].map((question, idx) => (
-                <button
-                  key={idx}
-                  className="w-full text-left px-3 py-2 rounded-lg border border-border hover:border-primary/50 transition-colors"
-                >
-                  <p className="text-sm text-foreground">{question}</p>
-                </button>
-              ))}
-            </div>
+          <div className="pt-12 pb-8 flex flex-col items-center justify-center">
+            <span className="block w-8 h-px bg-border mb-8" aria-hidden />
+            <p className="text-sm text-foreground/90 tracking-[0.2em] text-center">
+              该功能暂未开放
+            </p>
+            <p className="text-xs text-muted-foreground tracking-widest mt-3 text-center">
+              敬请期待
+            </p>
           </div>
         )}
             </>

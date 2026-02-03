@@ -1,0 +1,105 @@
+{
+  "type": "object",
+  "required": ["长期战略", "大运列表", "年度事业重心", "流月走势", "动荡预警", "助力分析", "事业年度总结"],
+  "properties": {
+    "长期战略": {
+      "type": "object",
+      "required": ["最强赛道A", "次选赛道B", "模式选择"],
+      "properties": {
+        "副标题": { "type": "string" },
+        "最强赛道A": {
+          "type": "object",
+          "required": ["标签", "行业领域", "上限高度", "发展路径", "理由"],
+          "properties": {
+            "标签": { "type": "string" },
+            "行业领域": { "type": "string" },
+            "上限高度": { "type": "string" },
+            "发展路径": { "type": "string" },
+            "理由": { "type": "string" }
+          }
+        },
+        "次选赛道B": {
+          "type": "object",
+          "required": ["标签", "行业领域", "简评"],
+          "properties": {
+            "标签": { "type": "string" },
+            "行业领域": { "type": "string" },
+            "简评": { "type": "string" }
+          }
+        },
+        "模式选择": {
+          "type": "object",
+          "required": ["打工胜率", "创业胜率", "角色定位", "深度解析"],
+          "properties": {
+            "打工胜率": { "type": "number" },
+            "创业胜率": { "type": "number" },
+            "角色定位": { "type": "string" },
+            "深度解析": { "type": "string" }
+          }
+        }
+      }
+    },
+    "大运列表": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["区间", "岁数", "干支", "宫位", "事业总评分", "趋势波动指数", "核心策略", "关键解读"],
+        "properties": {
+          "区间": { "type": "string" },
+          "岁数": { "type": "string" },
+          "干支": { "type": "string" },
+          "宫位": { "type": "string" },
+          "事业总评分": { "type": "number" },
+          "趋势波动指数": { "type": "array", "items": { "type": "number" }, "minItems": 10, "maxItems": 10 },
+          "核心策略": { "type": "string" },
+          "关键解读": { "type": "string" }
+        }
+      }
+    },
+    "年度事业重心": {
+      "type": "object",
+      "required": ["年度关键词", "核心战略", "行动指南"],
+      "properties": {
+        "副标题": { "type": "string" },
+        "年度关键词": { "type": "string" },
+        "核心战略": { "type": "string" },
+        "行动指南": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "流月走势": {
+      "type": "object",
+      "required": ["事业能量流", "挑战关键流月", "高能关键流月"],
+      "properties": {
+        "事业能量流": { "type": "array", "items": { "type": "number" }, "minItems": 12, "maxItems": 12 },
+        "挑战关键流月": { "type": "array", "items": { "type": "string" } },
+        "高能关键流月": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "动荡预警": {
+      "type": "object",
+      "required": ["可能出现的动荡事件", "回避与止损方案"],
+      "properties": {
+        "可能出现的动荡事件": { "type": "array", "items": { "type": "string" } },
+        "回避与止损方案": { "type": "string" }
+      }
+    },
+    "助力分析": {
+      "type": "object",
+      "required": ["核心助力来源", "增运建议"],
+      "properties": {
+        "核心助力来源": { "type": "string" },
+        "增运建议": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "事业年度总结": {
+      "type": "object",
+      "required": ["正文", "评分"],
+      "properties": {
+        "正文": { "type": "string" },
+        "评分": { "type": "number" }
+      }
+    }
+  }
+}

@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator'
 import { useAppContext } from '@/lib/context'
 import { useState, useEffect } from 'react'
 import { createArchive, createReportJob } from '@/lib/api-client'
+import { invalidateArchivesList } from '@/lib/api-cache'
 import { MAIN_REPORT_COST } from '@/lib/costs'
 import { LoginModal } from '@/components/login-modal'
 import { InsufficientBalanceDialog } from '@/components/insufficient-balance-dialog'
@@ -114,6 +115,7 @@ export function ArchivePage() {
         lunarDate: user.lunarDate,
         isLeapMonth: user.isLeapMonth,
       })
+      invalidateArchivesList()
       const { jobId } = await createReportJob({ archiveId: archive.id })
       setBalance(balance - MAIN_REPORT_COST)
       setUser((prev) => ({

@@ -3,6 +3,22 @@
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useAppContext } from '@/lib/context'
 
+/** 消费记录描述展示：深度报告英文 slug → 中文（仅前端展示，不动后端/数据库） */
+const DEEP_REPORT_DISPLAY_LABELS: Record<string, string> = {
+  'future-fortune': '未来运势',
+  'career-path': '仕途探索',
+  'wealth-road': '财富之路',
+  'love-marriage': '爱情姻缘',
+}
+
+function formatTransactionDescription(description: string): string {
+  const prefix = '深度报告：'
+  if (!description.startsWith(prefix)) return description
+  const slug = description.slice(prefix.length)
+  const label = DEEP_REPORT_DISPLAY_LABELS[slug]
+  return label ? `${prefix}${label}` : description
+}
+
 interface TransactionHistoryDialogProps {
   isOpen: boolean
   onClose: () => void
@@ -60,7 +76,7 @@ export function TransactionHistoryDialog({
                         </span>
                       </div>
                       <p className="text-xs text-foreground/80 leading-snug">
-                        {tx.description}
+                        {formatTransactionDescription(tx.description)}
                       </p>
                     </div>
                     <div className="text-right">

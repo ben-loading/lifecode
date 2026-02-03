@@ -26,7 +26,7 @@ export async function GET(
   const result: Record<string, { status: DeepReportItemStatus; jobId?: string }> = {}
 
   for (const reportType of DEEP_REPORT_TYPES as readonly string[]) {
-    const report = await getDeepReportByArchiveAndType(archiveId, reportType)
+    let report = await getDeepReportByArchiveAndType(archiveId, reportType)
     if (report) {
       result[reportType] = { status: 'completed' }
       continue
@@ -41,8 +41,13 @@ export async function GET(
       result[reportType] = { status: 'failed', jobId: lastJob.jobId }
       continue
     }
-    // job 显示完成但 DeepReport 不存在：视为失败，允许用户「重新生成」且不重复扣费
+    // job 显示完成但 DeepReport 查不到：可能是瞬时读失败（单行无误时也会偶现「查看报告」变「重新生成」）。重试一次再判失败。
     if (lastJob?.status === 'completed') {
+      report = await getDeepReportByArchiveAndType(archiveId, reportType)
+      if (report) {
+        result[reportType] = { status: 'completed' }
+        continue
+      }
       result[reportType] = { status: 'failed', jobId: lastJob.jobId }
       continue
     }
