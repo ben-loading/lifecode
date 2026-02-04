@@ -12,9 +12,14 @@
 4. 复制 `supabase/init.sql` 文件内容并粘贴
 5. 点击 **Run** 执行
 
-### 3. 执行 Supabase Auth 触发器（必需）
-在 SQL Editor 中执行 `supabase/migrations/002_supabase_auth_user.sql`，创建新用户自动创建 User 记录的触发器。  
-若出现 **「Database error saving new user」**，再执行 `supabase/migrations/003_fix_new_user_trigger.sql` 修复触发器。
+### 3. 业务用户创建方式（治本 vs 治标）
+
+**推荐（治本）**：不在「发送验证码」时写 `public."User"`，避免「Database error saving new user」。
+- **新项目**：不要执行 `002_supabase_auth_user.sql`。业务用户由应用在用户**输入验证码完成登录后、首次请求**（getSession 或任意需登录 API）时创建，见 `session/route.ts` 与 `auth-server.ts`。
+- **已执行过 002 的项目**：在 SQL Editor 执行 `supabase/migrations/006_remove_auth_user_trigger.sql`，移除触发器即可治本。
+
+**治标（保留触发器）**：若仍希望「auth 注册时自动插 User」。
+- 执行 `002_supabase_auth_user.sql`；若出现「Database error saving new user」，再执行 `003_fix_new_user_trigger.sql`，必要时 `005_rls_allow_trigger_insert.sql`。
 
 ### 4. Supabase Auth 配置
 在 Supabase Dashboard → Authentication → Providers → Email：

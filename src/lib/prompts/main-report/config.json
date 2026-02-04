@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "description": "主报告生成 Prompt v1.0 - 基于八字+紫微双核算法",
   "model": "gpt-4o",
-  "deepseekModel": "deepseek-chat",
+  "deepseekModel": "deepseek-reasoner",
   "temperature": 0.7,
   "maxTokens": 8000,
   "responseFormat": {

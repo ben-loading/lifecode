@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "description": "仕途探索深度报告 Prompt v1.0",
   "model": "gpt-4o",
-  "deepseekModel": "deepseek-chat",
+  "deepseekModel": "deepseek-reasoner",
   "temperature": 0.7,
   "maxTokens": 8192,
   "responseFormat": {

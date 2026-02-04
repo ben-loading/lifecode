@@ -89,10 +89,13 @@ export async function callLLM(
     responseFormat
   } = options
 
+  // deepseek-reasoner 不支持 temperature 等参数，传了可能报错，故省略
+  const isReasoner = model.toLowerCase().includes('reasoner')
+
   try {
     const response = await client.chat.completions.create({
       model,
-      temperature,
+      ...(isReasoner ? {} : { temperature }),
       max_tokens: maxTokens,
       response_format: responseFormat?.type === 'json_object' ? { type: 'json_object' } : undefined,
       messages: [
@@ -101,8 +104,10 @@ export async function callLLM(
       ]
     })
 
-    const content = response.choices[0]?.message?.content
-    if (!content) {
+    const msg = response.choices[0]?.message
+    // deepseek-reasoner 返回 reasoning_content（推理过程）与 content（最终答案），只取 content 作为结果
+    const content = msg && 'content' in msg ? (msg.content ?? null) : null
+    if (content == null || content === '') {
       throw new Error('LLM returned empty response')
     }
 
