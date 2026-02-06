@@ -6,6 +6,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { ApiUser, ApiArchive, ApiReportJob, ApiMainReport, ApiDeepReportJob, ApiDeepReport } from '@/lib/types/api'
 import type { CreateArchiveBody } from '@/lib/types/api'
+import { normalizeBirthInfo } from '@/lib/services/birth-normalizer'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -142,9 +143,58 @@ export async function getArchiveById(id: string): Promise<ApiArchive | null> {
   return rowToArchive(data)
 }
 
+/**
+ * 查询相同命盘的档案（基于性别 + 日期 + 时辰）
+ * 用于同命盘报告复用
+ */
+export async function findArchiveByNormalizedBirth(
+  gender: 'male' | 'female',
+  normalizedBirthDate: string,  // "YYYY-MM-DD"
+  normalizedTimeIndex: number,   // 0-12
+  excludeArchiveId?: string     // 排除的档案ID（避免查询到自己）
+): Promise<ApiArchive | null> {
+  const client = getClient()
+  let query = client
+    .from('Archive')
+    .select('*')
+    .eq('gender', gender)
+    .eq('normalized_birth_date', normalizedBirthDate)
+    .eq('normalized_time_index', normalizedTimeIndex)
+    .order('createdAt', { ascending: false })
+    .limit(1)
+  
+  if (excludeArchiveId) {
+    query = query.neq('id', excludeArchiveId)
+  }
+  
+  const { data, error } = await query.maybeSingle()
+  if (error || !data) return null
+  return rowToArchive(data)
+}
+
 export async function createArchive(userId: string, body: CreateArchiveBody): Promise<ApiArchive> {
   const client = getClient()
   const now = new Date().toISOString()
+  
+  // 构建临时档案对象用于标准化计算
+  const tempArchive: ApiArchive = {
+    id: '',
+    userId,
+    name: body.name.trim().slice(0, 12),
+    gender: body.gender,
+    birthDate: body.birthDate,
+    birthLocation: body.birthLocation?.trim() ?? '',
+    createdAt: now,
+    birthCalendar: body.birthCalendar,
+    birthTimeMode: body.birthTimeMode,
+    birthTimeBranch: body.birthTimeBranch,
+    lunarDate: body.lunarDate,
+    isLeapMonth: body.isLeapMonth,
+  }
+  
+  // 计算标准化字段
+  const normalized = normalizeBirthInfo(tempArchive)
+  
   const insert: Record<string, unknown> = {
     id: crypto.randomUUID(),
     userId,
@@ -157,6 +207,8 @@ export async function createArchive(userId: string, body: CreateArchiveBody): Pr
     birthTimeBranch: body.birthTimeBranch ?? null,
     lunarDate: body.lunarDate ?? null,
     isLeapMonth: body.isLeapMonth ?? null,
+    normalized_birth_date: normalized.normalizedBirthDate,
+    normalized_time_index: normalized.normalizedTimeIndex,
     createdAt: now,
     updatedAt: now,
   }

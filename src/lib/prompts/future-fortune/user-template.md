@@ -2,6 +2,8 @@
 
 **性别**：{{GENDER}}
 
+**当前公历时间**：{{CURRENT_DATE}}（年：{{CURRENT_YEAR}}，月：{{CURRENT_MONTH}}）
+
 **八字与紫微命盘数据**：
 {{IZTRO_INPUT}}
 

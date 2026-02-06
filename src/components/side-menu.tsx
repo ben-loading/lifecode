@@ -11,6 +11,7 @@ import { getSupabaseClient } from '@/lib/supabase/client'
 import type { ApiArchive } from '@/lib/types/api'
 import { TopUpDialog } from '@/components/topup-dialog'
 import { TransactionHistoryDialog } from '@/components/transaction-history-dialog'
+import { toast } from 'sonner'
 
 interface SideMenuProps {
   isOpen: boolean
@@ -85,8 +86,8 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-background">
+        {/* Header - Fixed Position */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-background shrink-0">
           <span className="text-sm font-medium">档案</span>
           <button
             onClick={onClose}
@@ -97,7 +98,7 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
         </div>
 
         {/* Create New Archive Button */}
-        <div className="px-5 py-3">
+        <div className="px-5 py-3 shrink-0">
           <button
             onClick={handleCreateNewArchive}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-lg transition-colors"
@@ -107,8 +108,8 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
           </button>
         </div>
 
-        {/* Archives List - Scrollable */}
-        <div className="flex-1 overflow-y-auto px-5 space-y-3">
+        {/* Archives List - Scrollable, Fixed Height (约4个档案的高度: 每个档案约3.5rem，4个约14rem) */}
+        <div className="px-5 overflow-y-auto shrink-0" style={{ height: '14rem', maxHeight: '14rem' }}>
           {archiveListLoading ? (
             <div className="px-3 py-4 text-center">
               <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
@@ -141,51 +142,61 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
               })}
             </div>
           )}
-
-          {/* Divider */}
-          <div className="border-t border-border pt-4 mt-4" />
-
-          {/* Menu Items */}
-          <div className="space-y-2 text-sm">
-            <button
-              onClick={() => {
-                router.push('/deep-reading')
-                onClose()
-              }}
-              className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
-            >
-              深度解读
-            </button>
-            <button
-              onClick={() => {
-                router.push('/task-center')
-                onClose()
-              }}
-              className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
-            >
-              任务中心
-            </button>
-            <button
-              onClick={() => {
-                window.open('https://discord.gg/your-server', '_blank')
-                onClose()
-              }}
-              className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
-            >
-              Discord 社群
-            </button>
-            <button
-              type="button"
-              className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
-            >
-              联系客服
-            </button>
-          </div>
         </div>
 
-        {/* Footer - User Info & Billing */}
+        {/* Divider */}
+        <div className="border-t border-border shrink-0" />
+
+        {/* Menu Items - Fixed Position */}
+        <div className="px-5 py-3 space-y-2 text-sm shrink-0">
+          <button
+            onClick={async () => {
+              // 优化第6点：无档案时深度解读入口 - 检查是否有档案
+              if (archiveList.length === 0 && !archiveListLoading) {
+                toast.error('请先创建档案进行解码开启')
+                onClose()
+                return
+              }
+              const archiveId = user.currentArchiveId
+              router.push(archiveId ? `/deep-reading?archiveId=${archiveId}` : '/deep-reading')
+              onClose()
+            }}
+            className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
+          >
+            深度解读
+          </button>
+          <button
+            onClick={() => {
+              router.push('/task-center')
+              onClose()
+            }}
+            className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
+          >
+            活动中心
+          </button>
+          <button
+            onClick={() => {
+              window.open('https://discord.gg/your-server', '_blank')
+              onClose()
+            }}
+            className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
+          >
+            Discord 社群
+          </button>
+          <button
+            type="button"
+            className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
+          >
+            联系客服
+          </button>
+        </div>
+
+        {/* Spacer - Push footer to bottom */}
+        <div className="flex-1" />
+
+        {/* Footer - User Info & Billing - Fixed at Bottom */}
         {userEmail && (
-          <div className="border-t border-border p-5 space-y-4">
+          <div className="border-t border-border p-5 space-y-4 shrink-0">
             {/* Email */}
             <span className="text-sm text-foreground truncate block">{userEmail}</span>
 

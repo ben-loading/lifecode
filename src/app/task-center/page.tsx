@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { ArrowLeft, Copy, ExternalLink, Gift } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Gift } from 'lucide-react'
 import { useAppContext } from '@/lib/context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -13,25 +13,9 @@ const DISCORD_INVITE_URL = 'https://discord.gg/your-server' // 可后续改为�
 
 export default function TaskCenterPage() {
   const router = useRouter()
-  const { user, balance, setBalance, setTransactions, earnRecords, addEarnRecord } = useAppContext()
+  const { balance, setBalance, setTransactions, earnRecords, addEarnRecord } = useAppContext()
   const [redeemCode, setRedeemCode] = useState('')
   const [redeemStatus, setRedeemStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [copyInviteOk, setCopyInviteOk] = useState(false)
-
-  const inviteRef = user?.inviteRef ?? ''
-
-  const handleCopyInviteLink = async () => {
-    if (!inviteRef) return
-    const origin = typeof window !== 'undefined' ? window.location.origin : ''
-    const link = `${origin}/?invite=${inviteRef}`
-    try {
-      await navigator.clipboard.writeText(link)
-      setCopyInviteOk(true)
-      setTimeout(() => setCopyInviteOk(false), 2000)
-    } catch {
-      setRedeemStatus('error')
-    }
-  }
 
   const handleRedeem = async () => {
     const code = redeemCode.trim()
@@ -68,7 +52,7 @@ export default function TaskCenterPage() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-medium tracking-wide">任务中心</h1>
+          <h1 className="text-lg font-medium tracking-wide">活动中心</h1>
         </div>
       </header>
 
@@ -79,32 +63,7 @@ export default function TaskCenterPage() {
           <span className="text-xl font-medium text-foreground">{balance}</span>
         </div>
 
-        {/* 任务一：邀请任务 */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium text-foreground tracking-wide">邀请任务</h2>
-          <Card className="border-border shadow-none">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-base font-medium text-foreground">邀请好友</span>
-                <span className="text-sm font-medium text-primary">+20 积分</span>
-              </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                受邀人需要完成注册并生成一份基础的人生分析（主界面的报告生成），您即可获得 20 积分。
-              </p>
-              <Button
-                onClick={handleCopyInviteLink}
-                variant="outline"
-                className="w-full gap-2 border-border"
-                disabled={!inviteRef}
-              >
-                <Copy className="w-4 h-4" />
-                {copyInviteOk ? '已复制邀请链接' : inviteRef ? '复制邀请链接' : '加载中…'}
-              </Button>
-            </CardContent>
-          </Card>
-        </section>
-
-        <Separator className="bg-border" />
+        {/* 优化第9点：暂时隐藏邀请任务模块 */}
 
         {/* 任务二：Discord 活动 + 兑换码 */}
         <section className="space-y-3">
@@ -156,7 +115,7 @@ export default function TaskCenterPage() {
           <div className="rounded-lg border border-border bg-muted/10 overflow-hidden">
             {earnRecords.length === 0 ? (
               <div className="px-4 py-8 text-center text-xs text-muted-foreground">
-                暂无记录。完成邀请任务或使用兑换码后，将在此展示。
+                暂无记录。使用兑换码后，将在此展示。
               </div>
             ) : (
               <ul className="divide-y divide-border">

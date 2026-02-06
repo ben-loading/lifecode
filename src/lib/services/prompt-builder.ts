@@ -27,16 +27,40 @@ export interface BuiltPrompt {
  * @returns 完整的 Prompt（system + user message）
  */
 export async function buildMainReportPrompt(iztroInput: IztroInput): Promise<BuiltPrompt> {
+  // 获取当前实际公历时间
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+  const currentDay = now.getDate()
+  const currentDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`
+  
+  // 计算流年三年：去年、今年、明年
+  const lastYear = currentYear - 1
+  const nextYear = currentYear + 1
+  
   // 加载模板
   const template = loadPromptTemplate('main-report')
   
+  // 替换 system prompt 中的时间变量
+  const systemPrompt = renderTemplate(template.system, {
+    CURRENT_YEAR: String(currentYear),
+    CURRENT_MONTH: String(currentMonth),
+    LAST_YEAR: String(lastYear),
+    NEXT_YEAR: String(nextYear),
+  })
+  
   // 渲染 user message（替换 {{IZTRO_INPUT}} 变量）
   const userMessage = renderTemplate(template.userTemplate, {
-    IZTRO_INPUT: JSON.stringify(iztroInput, null, 2)
+    IZTRO_INPUT: JSON.stringify(iztroInput, null, 2),
+    CURRENT_DATE: currentDate,
+    CURRENT_YEAR: String(currentYear),
+    CURRENT_MONTH: String(currentMonth),
+    LAST_YEAR: String(lastYear),
+    NEXT_YEAR: String(nextYear),
   })
   
   return {
-    systemPrompt: template.system,
+    systemPrompt,
     userMessage,
     config: template.config
   }
@@ -44,7 +68,7 @@ export async function buildMainReportPrompt(iztroInput: IztroInput): Promise<Bui
 
 /**
  * 构建未来运势深度报告 Prompt
- * 输入：档案 ID；内部拉取档案、iztro 命盘、主报告，组装 GENDER、IZTRO_INPUT、MAIN_REPORT。
+ * 输入：档案 ID；内部拉取档案、iztro 命盘、主报告，组装 GENDER、IZTRO_INPUT、MAIN_REPORT、CURRENT_DATE。
  */
 export async function buildFutureFortunePrompt(archiveId: string): Promise<BuiltPrompt> {
   const archive = await getArchiveById(archiveId)
@@ -61,14 +85,36 @@ export async function buildFutureFortunePrompt(archiveId: string): Promise<Built
         palaceAnalysis: mainReport.palaceAnalysis,
       }
     : {}
+  
+  // 获取当前实际公历时间（年月日）
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1 // 0-11 -> 1-12
+  const currentDay = now.getDate()
+  const currentDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`
+  
   const template = loadPromptTemplate('future-fortune')
   const userMessage = renderTemplate(template.userTemplate, {
     GENDER: archive.gender === 'male' ? '男' : '女',
     IZTRO_INPUT: JSON.stringify(iztroInput, null, 2),
     MAIN_REPORT: JSON.stringify(mainReportSummary, null, 2),
+    CURRENT_DATE: currentDate,
+    CURRENT_YEAR: String(currentYear),
+    CURRENT_MONTH: String(currentMonth),
   })
+  
+  // 替换 system prompt 中的时间变量
+  const systemPrompt = renderTemplate(template.system, {
+    CURRENT_YEAR: String(currentYear),
+    CURRENT_MONTH: String(currentMonth),
+    LAST_YEAR: String(currentYear - 1),
+    NEXT_YEAR_1: String(currentYear + 1),
+    NEXT_YEAR_2: String(currentYear + 2),
+    NEXT_YEAR_3: String(currentYear + 3),
+  })
+  
   return {
-    systemPrompt: template.system,
+    systemPrompt,
     userMessage,
     config: template.config,
   }
@@ -76,7 +122,7 @@ export async function buildFutureFortunePrompt(archiveId: string): Promise<Built
 
 /**
  * 构建仕途探索深度报告 Prompt
- * 输入与未来运势一致：档案 ID；内部拉取档案、iztro 命盘、主报告，组装 GENDER、IZTRO_INPUT、MAIN_REPORT。
+ * 输入与未来运势一致：档案 ID；内部拉取档案、iztro 命盘、主报告，组装 GENDER、IZTRO_INPUT、MAIN_REPORT、CURRENT_DATE。
  */
 export async function buildCareerPathPrompt(archiveId: string): Promise<BuiltPrompt> {
   const archive = await getArchiveById(archiveId)
@@ -93,14 +139,33 @@ export async function buildCareerPathPrompt(archiveId: string): Promise<BuiltPro
         palaceAnalysis: mainReport.palaceAnalysis,
       }
     : {}
+  
+  // 获取当前实际公历时间
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+  const currentDay = now.getDate()
+  const currentDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`
+  
   const template = loadPromptTemplate('career-path')
+  
+  // 替换 system prompt 中的时间变量
+  const systemPrompt = renderTemplate(template.system, {
+    CURRENT_YEAR: String(currentYear),
+    CURRENT_MONTH: String(currentMonth),
+    CURRENT_YEAR_END: String(currentYear + 9), // 十年区间结束年份
+  })
+  
   const userMessage = renderTemplate(template.userTemplate, {
     GENDER: archive.gender === 'male' ? '男' : '女',
     IZTRO_INPUT: JSON.stringify(iztroInput, null, 2),
     MAIN_REPORT: JSON.stringify(mainReportSummary, null, 2),
+    CURRENT_DATE: currentDate,
+    CURRENT_YEAR: String(currentYear),
+    CURRENT_MONTH: String(currentMonth),
   })
   return {
-    systemPrompt: template.system,
+    systemPrompt,
     userMessage,
     config: template.config,
   }
@@ -108,7 +173,7 @@ export async function buildCareerPathPrompt(archiveId: string): Promise<BuiltPro
 
 /**
  * 构建财富之路深度报告 Prompt
- * 输入与未来运势、仕途探索一致：档案 ID；内部拉取档案、iztro 命盘、主报告，组装 GENDER、IZTRO_INPUT、MAIN_REPORT。
+ * 输入与未来运势、仕途探索一致：档案 ID；内部拉取档案、iztro 命盘、主报告，组装 GENDER、IZTRO_INPUT、MAIN_REPORT、CURRENT_DATE。
  */
 export async function buildWealthRoadPrompt(archiveId: string): Promise<BuiltPrompt> {
   const archive = await getArchiveById(archiveId)
@@ -125,14 +190,32 @@ export async function buildWealthRoadPrompt(archiveId: string): Promise<BuiltPro
         palaceAnalysis: mainReport.palaceAnalysis,
       }
     : {}
+  
+  // 获取当前实际公历时间
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+  const currentDay = now.getDate()
+  const currentDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`
+  
   const template = loadPromptTemplate('wealth-road')
+  
+  // 替换 system prompt 中的时间变量
+  const systemPrompt = renderTemplate(template.system, {
+    CURRENT_YEAR: String(currentYear),
+    CURRENT_MONTH: String(currentMonth),
+  })
+  
   const userMessage = renderTemplate(template.userTemplate, {
     GENDER: archive.gender === 'male' ? '男' : '女',
     IZTRO_INPUT: JSON.stringify(iztroInput, null, 2),
     MAIN_REPORT: JSON.stringify(mainReportSummary, null, 2),
+    CURRENT_DATE: currentDate,
+    CURRENT_YEAR: String(currentYear),
+    CURRENT_MONTH: String(currentMonth),
   })
   return {
-    systemPrompt: template.system,
+    systemPrompt,
     userMessage,
     config: template.config,
   }
@@ -140,7 +223,7 @@ export async function buildWealthRoadPrompt(archiveId: string): Promise<BuiltPro
 
 /**
  * 构建爱情姻缘深度报告 Prompt
- * 输入与未来运势、仕途探索、财富之路一致：档案 ID；内部拉取档案、iztro 命盘、主报告，组装 GENDER、IZTRO_INPUT、MAIN_REPORT。
+ * 输入与未来运势、仕途探索、财富之路一致：档案 ID；内部拉取档案、iztro 命盘、主报告，组装 GENDER、IZTRO_INPUT、MAIN_REPORT、CURRENT_DATE。
  */
 export async function buildLoveMarriagePrompt(archiveId: string): Promise<BuiltPrompt> {
   const archive = await getArchiveById(archiveId)
@@ -157,14 +240,32 @@ export async function buildLoveMarriagePrompt(archiveId: string): Promise<BuiltP
         palaceAnalysis: mainReport.palaceAnalysis,
       }
     : {}
+  
+  // 获取当前实际公历时间
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+  const currentDay = now.getDate()
+  const currentDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`
+  
   const template = loadPromptTemplate('love-marriage')
+  
+  // 替换 system prompt 中的时间变量
+  const systemPrompt = renderTemplate(template.system, {
+    CURRENT_YEAR: String(currentYear),
+    CURRENT_MONTH: String(currentMonth),
+  })
+  
   const userMessage = renderTemplate(template.userTemplate, {
     GENDER: archive.gender === 'male' ? '男' : '女',
     IZTRO_INPUT: JSON.stringify(iztroInput, null, 2),
     MAIN_REPORT: JSON.stringify(mainReportSummary, null, 2),
+    CURRENT_DATE: currentDate,
+    CURRENT_YEAR: String(currentYear),
+    CURRENT_MONTH: String(currentMonth),
   })
   return {
-    systemPrompt: template.system,
+    systemPrompt,
     userMessage,
     config: template.config,
   }

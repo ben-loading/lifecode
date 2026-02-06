@@ -23,4 +23,3 @@ git tag lifecode-release-20260129  # 或使用实际 commit hash
 - **Git HEAD**: `9c24fa839a5e63fd9dbc56fa267936cb6b972965`
 - **Date**: 2026-01-29
 - **Notes**: Base Next.js + Tailwind + TS，侧栏与深度解读基础结构，无四类报告与缓存。
-

@@ -2,17 +2,20 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ChevronDown, FileText } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { PaymentDialog } from '@/components/payment-dialog'
 import { ReservationDialog } from '@/components/reservation-dialog'
 import { TopUpDialog } from '@/components/topup-dialog'
 import { useAppContext } from '@/lib/context'
 import { createDeepReportJob, getSession } from '@/lib/api-client'
-import { getDeepReportArchiveStatusCached, invalidateDeepReport } from '@/lib/api-cache'
+import { getDeepReportArchiveStatusCached, invalidateDeepReport, listArchivesCached } from '@/lib/api-cache'
 import { toast } from 'sonner'
 import { DEEP_REPORT_COST } from '@/lib/costs'
 import { InsufficientBalanceDialog } from '@/components/insufficient-balance-dialog'
+import { ConfirmEnergyDeductionDialog } from '@/components/confirm-energy-deduction-dialog'
+import type { ApiArchive } from '@/lib/types/api'
 
 type TabType = '深度报告' | '真人1V1' | 'AI解答'
 type DeepItemStatus = 'none' | 'generating' | 'completed' | 'failed'
@@ -27,51 +30,127 @@ const deepReports = [
 export function DeepReadingPage({
   archiveName,
   archiveLoading = false,
+  archiveId,
 }: {
   archiveName?: string
   archiveLoading?: boolean
+  archiveId?: string
 }) {
   const router = useRouter()
-  const { user, balance, setBalance } = useAppContext()
-  const currentArchiveId = user.currentArchiveId
+  const { user, balance, setBalance, setUser } = useAppContext()
+  // 优先使用传入的 archiveId（来自 URL），避免刷新时丢失档案状态；无传入时用 context 的 currentArchiveId
+  const currentArchiveId = archiveId ?? user.currentArchiveId
   const [activeTab, setActiveTab] = useState<TabType>('深度报告')
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [showReservationDialog, setShowReservationDialog] = useState(false)
   const [hasReservation, setHasReservation] = useState(false)
   const [showInsufficient, setShowInsufficient] = useState(false)
   const [showTopUp, setShowTopUp] = useState(false)
+  const [showConfirmDeduction, setShowConfirmDeduction] = useState(false)
+  const [pendingReportSlug, setPendingReportSlug] = useState<string | null>(null)
   const [unlockLoading, setUnlockLoading] = useState<string | null>(null)
   const [statusMap, setStatusMap] = useState<Record<string, { status: DeepItemStatus; jobId?: string }>>({})
   const [statusLoading, setStatusLoading] = useState(false)
   const [reservationNumber] = useState('123456')
   const [expiryDate] = useState('2026/01/28 14:00')
+  const [showArchiveSelector, setShowArchiveSelector] = useState(false)
+  const [archiveList, setArchiveList] = useState<ApiArchive[]>([])
+  const [archiveListLoading, setArchiveListLoading] = useState(false)
 
-  const fetchStatus = useCallback(async () => {
+  const [lastFetchedArchiveId, setLastFetchedArchiveId] = useState<string | null>(null)
+  const fetchStatus = useCallback(async (invalidateCache = false) => {
     if (!currentArchiveId) return
+    // 切换档案时清空旧状态（避免显示上一个档案的数据）
+    if (lastFetchedArchiveId && lastFetchedArchiveId !== currentArchiveId) {
+      setStatusMap({})
+    }
+    setLastFetchedArchiveId(currentArchiveId)
     setStatusLoading(true)
     try {
+      // 如果需要强制刷新（如刷新页面），先清除缓存
+      if (invalidateCache) {
+        invalidateDeepReport(currentArchiveId)
+      }
       const map = await getDeepReportArchiveStatusCached(currentArchiveId)
-      setStatusMap(map)
+      // 更新状态时保留之前「解读中」的状态，避免因 API 延迟/缓存导致按钮短暂变回「解锁」
+      setStatusMap((prev) => {
+        const next: Record<string, { status: DeepItemStatus; jobId?: string }> = {}
+        // 先应用新数据
+        Object.keys(map).forEach((slug) => {
+          next[slug] = map[slug]
+        })
+        // 仅在同一档案内保留之前是 'generating' 的状态，除非新状态是 'completed' 或 'failed'（已确认完成/失败）
+        // 修复：如果后端返回 'none'，但本地是 'generating'，应该保留 'generating'（可能是后端还没创建任务或缓存过期）
+        Object.keys(prev).forEach((slug) => {
+          const prevItem = prev[slug]
+          const nextItem = next[slug]
+          if (prevItem?.status === 'generating') {
+            // 之前是生成中，新数据中没有或状态是 'none' 或不是 completed/failed，则保留 generating
+            if (!nextItem || nextItem.status === 'none' || (nextItem.status !== 'completed' && nextItem.status !== 'failed')) {
+              next[slug] = { ...prevItem, ...(nextItem || {}) } // 保留 jobId 等，但状态保持 generating
+            }
+          }
+        })
+        return next
+      })
     } catch {
-      setStatusMap({})
+      // 请求失败时不清空状态，保留当前 statusMap（避免误将「解读中」清空）
     } finally {
       setStatusLoading(false)
     }
-  }, [currentArchiveId])
+  }, [currentArchiveId, lastFetchedArchiveId])
 
+  // 页面加载时强制刷新状态（清除缓存），确保获取最新的 generating 状态
   useEffect(() => {
-    fetchStatus()
+    // 首次加载时清除缓存，确保获取最新状态
+    fetchStatus(true)
   }, [fetchStatus])
+
+  // 加载档案列表（用于档案选择器）
+  useEffect(() => {
+    if (!showArchiveSelector) return
+    setArchiveListLoading(true)
+    listArchivesCached()
+      .then((list) => setArchiveList(list ?? []))
+      .catch(() => setArchiveList([]))
+      .finally(() => setArchiveListLoading(false))
+  }, [showArchiveSelector])
+
+  // 切换档案
+  const handleSelectArchive = (archive: ApiArchive) => {
+    setUser((prev) => ({ ...prev, currentArchiveId: archive.id }))
+    // 清空旧档案的状态，避免切换时显示上一个档案的数据
+    setStatusMap({})
+    router.replace(`/deep-reading?archiveId=${archive.id}`, { scroll: false })
+    setShowArchiveSelector(false)
+    // 切换档案后重新拉取状态（路由页会更新 archiveId prop，fetchStatus 会自动触发）
+  }
 
   const getButtonState = (reportSlug: string) => {
     const item = statusMap[reportSlug]
+    // 当前报告本身正在生成中，禁用按钮
     if (unlockLoading === reportSlug) return { label: '解读中…', disabled: true }
-    if (!item) return { label: '解读', disabled: false }
-    if (item.status === 'generating') return { label: '解读中…', disabled: true }
-    if (item.status === 'completed') return { label: '查看报告', disabled: false }
-    if (item.status === 'failed') return { label: '重新生成', disabled: false }
+    if (item?.status === 'generating') return { label: '解读中…', disabled: true }
+    // 其他状态：按钮保持可点击（即使有其他报告正在生成，也让用户点击后显示提示）
+    // 这样用户点击时能看到提示，而不是按钮被禁用无法点击
+    if (item?.status === 'completed') return { label: '查看报告', disabled: false }
+    if (item?.status === 'failed') return { label: '重新生成', disabled: false }
+    // 默认状态：按钮可点击，点击时 handleDeepReportAction 会检查是否有其他报告正在生成并显示提示
     return { label: '解读', disabled: false }
   }
+
+  // 检查是否有其他报告正在生成中
+  const getGeneratingReport = useCallback((): { slug: string; title: string } | null => {
+    for (const [slug, item] of Object.entries(statusMap)) {
+      if (item?.status === 'generating' || unlockLoading === slug) {
+        const report = deepReports.find((r) => r.slug === slug)
+        if (report) {
+          return { slug, title: report.title }
+        }
+      }
+    }
+    return null
+  }, [statusMap, unlockLoading])
 
   const handleDeepReportAction = async (reportSlug: string) => {
     const item = statusMap[reportSlug]
@@ -80,26 +159,97 @@ export function DeepReadingPage({
       router.push(`/deep-reading/${reportSlug}?archiveId=${currentArchiveId}`)
       return
     }
+    
+    // 如果当前报告本身正在生成中，直接返回（不应该触发）
+    if (item?.status === 'generating' || unlockLoading === reportSlug) {
+      return
+    }
+    
+    // 检查是否有其他报告正在生成中（优先检查，确保提示能显示）
+    // 直接在函数内检查，不依赖 useCallback
+    let generatingReport: { slug: string; title: string } | null = null
+    for (const [slug, statusItem] of Object.entries(statusMap)) {
+      if (slug !== reportSlug && (statusItem?.status === 'generating' || unlockLoading === slug)) {
+        const report = deepReports.find((r) => r.slug === slug)
+        if (report) {
+          generatingReport = { slug, title: report.title }
+          break
+        }
+      }
+    }
+    
+    if (generatingReport) {
+      // 使用 toast.error 显示提示
+      toast.error(`当前「${generatingReport.title}」正在解读中，请等待完成后再进行解读`, {
+        duration: 3000,
+      })
+      return
+    }
+    
     if (!currentArchiveId) {
       setShowInsufficient(true)
       return
     }
+
     const isRetry = item?.status === 'failed'
-    if (!isRetry && balance < DEEP_REPORT_COST) {
+    
+    // 如果是重试，直接开始生成（不扣费）
+    if (isRetry) {
+      await startGeneratingReport(reportSlug, isRetry)
+      return
+    }
+
+    // 检查余额
+    if (balance < DEEP_REPORT_COST) {
       setShowInsufficient(true)
       return
     }
+
+    // 余额足够，显示确认弹窗
+    setPendingReportSlug(reportSlug)
+    setShowConfirmDeduction(true)
+  }
+
+  // 开始生成报告（用户确认后调用）
+  const startGeneratingReport = async (reportSlug: string, isRetry: boolean) => {
     setUnlockLoading(reportSlug)
+    // 点击解读时立即标记为 generating，避免在 fetchStatus 完成前按钮变回「解锁」
+    setStatusMap((prev) => ({
+      ...prev,
+      [reportSlug]: { status: 'generating' },
+    }))
     try {
-      const res = await createDeepReportJob(currentArchiveId, reportSlug, isRetry)
+      const res = await createDeepReportJob(currentArchiveId!, reportSlug, isRetry)
       const session = await getSession().catch(() => null)
       if (session?.user) setBalance(session.user.balance)
-      await fetchStatus()
+      // 如果返回明确状态，立即更新（completed/failed），避免被 fetchStatus 的延迟数据覆盖
       if (res.status === 'completed') {
-        invalidateDeepReport(currentArchiveId, reportSlug)
+        setStatusMap((prev) => ({
+          ...prev,
+          [reportSlug]: { status: 'completed' },
+        }))
+        invalidateDeepReport(currentArchiveId!, reportSlug)
         toast.success('解读完成，可点击「查看报告」')
-      } else {
+        // 完成后清空 unlockLoading，并刷新状态
+        setUnlockLoading(null)
+        await fetchStatus()
+      } else if (res.status === 'failed') {
+        setStatusMap((prev) => ({
+          ...prev,
+          [reportSlug]: { status: 'failed' },
+        }))
         toast.error('解读失败，可点击「重新生成」免费重试')
+        // 失败后清空 unlockLoading，并刷新状态
+        setUnlockLoading(null)
+        await fetchStatus()
+      } else {
+        // 如果返回的是 generating（理论上不会），或者需要等待后端确认
+        // 先刷新状态，确保后端已创建任务，然后再清空 unlockLoading
+        await fetchStatus()
+        // 延迟清空 unlockLoading，确保状态已更新
+        setTimeout(() => {
+          setUnlockLoading(null)
+        }, 300)
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -107,13 +257,38 @@ export function DeepReadingPage({
         const session = await getSession().catch(() => null)
         if (session?.user) setBalance(session.user.balance)
         setShowInsufficient(true)
+        // 能量不足时恢复状态，允许重试
+        setStatusMap((prev) => {
+          const next = { ...prev }
+          delete next[reportSlug]
+          return next
+        })
+        setUnlockLoading(null)
       } else {
         toast.error(msg || '解读失败，请稍后再试')
+        // 其他错误保持 generating，等待 fetchStatus 确认最终状态
+        // 先刷新状态，然后再清空 unlockLoading
+        await fetchStatus()
+        setTimeout(() => {
+          setUnlockLoading(null)
+        }, 300)
       }
-      await fetchStatus()
-    } finally {
-      setUnlockLoading(null)
     }
+  }
+
+  // 确认扣除能量
+  const handleConfirmDeduction = () => {
+    if (pendingReportSlug) {
+      setShowConfirmDeduction(false)
+      startGeneratingReport(pendingReportSlug, false)
+      setPendingReportSlug(null)
+    }
+  }
+
+  // 取消确认扣除能量
+  const handleCancelDeduction = () => {
+    setShowConfirmDeduction(false)
+    setPendingReportSlug(null)
   }
 
   const handlePayment = () => {
@@ -150,6 +325,26 @@ export function DeepReadingPage({
           </button>
           <h1 className="text-lg font-medium">深度解读</h1>
         </div>
+
+        {/* 档案选择器（移动到 Tabs 上方，居中展示） */}
+        {currentArchiveId && !archiveLoading && (
+          <div className="px-5 pt-3 pb-2">
+            <button
+              onClick={() => setShowArchiveSelector(true)}
+              className="w-full flex items-center justify-center relative py-2 group"
+            >
+              <div className="flex flex-col items-center min-w-0">
+                <span className="text-[10px] text-muted-foreground mb-1 tracking-wider">解读档案</span>
+                <span className="text-base font-medium text-foreground">
+                  #{archiveName || '档案'}
+                </span>
+              </div>
+              <div className="absolute right-0 text-muted-foreground group-hover:text-foreground transition-colors shrink-0">
+                <ChevronDown className="w-4 h-4" />
+              </div>
+            </button>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex items-center justify-center gap-8 px-5 pb-3 border-b border-border">
@@ -194,16 +389,6 @@ export function DeepReadingPage({
           }
           return (
             <>
-              {/* Archive Info */}
-              <div className="flex items-center justify-between py-3 border-b border-border">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-0.5">解读档案</p>
-                  <p className="text-sm font-medium text-foreground">#{archiveName || '档案'}</p>
-                </div>
-                <button className="text-muted-foreground hover:text-foreground transition-colors">
-                  ↗
-                </button>
-              </div>
 
               {/* Tab Content */}
               {activeTab === '深度报告' && (
@@ -228,6 +413,12 @@ export function DeepReadingPage({
                       const showEnergy = !st || st === 'none' || st === 'failed'
                       const btn = getButtonState(report.slug)
                       const showGeneratingHint = isGenerating
+                      // 只有当当前报告本身正在生成时才禁用按钮
+                      // 如果有其他报告正在生成，按钮保持可点击，点击时显示提示
+                      // 这样用户点击时能看到提示，而不是按钮被禁用无法点击
+                      const shouldDisable = btn.disabled // 只根据当前报告本身的状态决定是否禁用
+                      // 确保按钮可点击：如果当前报告本身不在生成中，按钮不应该被禁用
+                      // 即使有其他报告正在生成，也应该让用户点击后看到提示
                       return (
                         <>
                           <span
@@ -240,8 +431,11 @@ export function DeepReadingPage({
                                 : ''}
                           </span>
                           <button
-                            onClick={() => handleDeepReportAction(report.slug)}
-                            disabled={btn.disabled}
+                            onClick={() => {
+                              // 直接调用，让 handleDeepReportAction 处理所有逻辑
+                              handleDeepReportAction(report.slug)
+                            }}
+                            disabled={shouldDisable}
                             className="px-4 py-1.5 bg-primary text-primary-foreground rounded-full text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                           >
                             {btn.label}
@@ -303,6 +497,16 @@ export function DeepReadingPage({
         required={DEEP_REPORT_COST}
         currentBalance={balance}
       />
+      {pendingReportSlug && (
+        <ConfirmEnergyDeductionDialog
+          isOpen={showConfirmDeduction}
+          onClose={handleCancelDeduction}
+          onConfirm={handleConfirmDeduction}
+          reportTitle={deepReports.find((r) => r.slug === pendingReportSlug)?.title || '深度报告'}
+          required={DEEP_REPORT_COST}
+          currentBalance={balance}
+        />
+      )}
       <TopUpDialog
         isOpen={showTopUp}
         onClose={() => setShowTopUp(false)}
@@ -318,6 +522,58 @@ export function DeepReadingPage({
         reservationNumber={reservationNumber}
         expiryDate={expiryDate}
       />
+
+      {/* 档案选择器弹窗 */}
+      <Dialog open={showArchiveSelector} onOpenChange={setShowArchiveSelector}>
+        <DialogContent className="max-w-md p-0">
+          <div className="px-6 pt-6 pb-4 border-b border-border">
+            <DialogTitle className="text-base font-medium tracking-wide">选择档案</DialogTitle>
+          </div>
+          <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
+            {archiveListLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <p className="text-xs text-muted-foreground tracking-wide">加载档案列表中…</p>
+              </div>
+            ) : archiveList.length === 0 ? (
+              <div className="py-12 text-center">
+                <p className="text-sm text-muted-foreground tracking-wide">暂无档案</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {archiveList.map((archive) => {
+                  const isCurrent = archive.id === currentArchiveId
+                  return (
+                    <button
+                      key={archive.id}
+                      type="button"
+                      onClick={() => handleSelectArchive(archive)}
+                      className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 flex items-center gap-3 ${
+                        isCurrent
+                          ? 'bg-primary/10 border border-primary text-foreground shadow-sm'
+                          : 'border border-border text-muted-foreground hover:text-foreground hover:bg-muted/30 hover:border-primary/30'
+                      }`}
+                    >
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${
+                        isCurrent ? 'bg-primary' : 'bg-muted-foreground/30'
+                      }`} />
+                      <FileText className={`w-4 h-4 shrink-0 ${
+                        isCurrent ? 'text-primary' : 'text-muted-foreground'
+                      }`} />
+                      <span className="flex-1 truncate text-sm font-medium">{archive.name || '未命名档案'}</span>
+                      {isCurrent && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium shrink-0">
+                          当前
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   )
 }

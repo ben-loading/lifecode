@@ -9,7 +9,8 @@ import { buildMainReportPrompt } from './prompt-builder'
 import { callLLM } from './llm-service'
 import { MainReportSchema, extractJsonFromResponse, normalizeMainReportOutput, type ValidatedMainReport } from './report-validator'
 import type { ApiMainReport } from '@/lib/types/api'
-import { getArchiveById, createMainReport } from '@/lib/db'
+import { getArchiveById, createMainReport, findArchiveByNormalizedBirth, getMainReportByArchiveId } from '@/lib/db'
+import { normalizeBirthInfo } from './birth-normalizer'
 
 /**
  * 生成主报告（完整流程）
@@ -24,7 +25,35 @@ export async function generateMainReport(archiveId: string): Promise<ApiMainRepo
     throw new Error(`Archive not found: ${archiveId}`)
   }
 
-  // 2. 用档案数据计算命盘（iztro）
+  // 2. 【新增】计算标准化命盘信息（日期 + 时辰）
+  const normalized = normalizeBirthInfo(archive)
+  
+  // 3. 【新增】查询是否有相同命盘的已有报告
+  const existingArchive = await findArchiveByNormalizedBirth(
+    archive.gender,
+    normalized.normalizedBirthDate,
+    normalized.normalizedTimeIndex,
+    archiveId  // 排除当前档案
+  )
+  
+  // 4. 【新增】如果找到相同命盘的报告，直接复用（不调用 LLM）
+  if (existingArchive) {
+    const existingReport = await getMainReportByArchiveId(existingArchive.id)
+    if (existingReport) {
+      // 复制报告内容到新档案
+      const newReport: ApiMainReport = {
+        ...existingReport,
+        id: `report_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        archiveId: archiveId,
+        createdAt: new Date().toISOString()
+      }
+      await createMainReport(newReport)
+      return newReport  // 直接返回，不调用 LLM，节省成本
+    }
+  }
+
+  // 5. 如果没有找到，继续原有流程（调用 LLM）
+  // 用档案数据计算命盘（iztro）
   const iztroInput = await calculateAstrolabe(archive)
 
   // 3. 构建 Prompt

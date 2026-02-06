@@ -25,18 +25,8 @@ import { useState, useEffect } from 'react'
 import { SideMenu } from '@/components/side-menu'
 import { ShareDialog } from '@/components/share-dialog'
 import { getReportJobStatus, createReportJob, createReportJobRetry } from '@/lib/api-client'
-import { getMainReportCached, getReportArchiveStatusCached, getArchiveCached, invalidateMainReport } from '@/lib/api-cache'
+import { getMainReportCached, getReportArchiveStatusCached, getArchiveCached, invalidateMainReport, listArchivesCached } from '@/lib/api-cache'
 import type { ApiMainReport } from '@/lib/types/api'
-
-// 分析步骤：与后端流程对应（时辰→八字→排盘→先天→大限/流年→输出），前端用计时驱动，不依赖轮询步进
-const analysisStepsConfig = [
-  { id: 1, label: '分析时辰', subLabel: '解析出生时间与地区' },
-  { id: 2, label: '分析八字', subLabel: '节气四柱排盘' },
-  { id: 3, label: '分析排盘', subLabel: '紫微斗数命盘' },
-  { id: 4, label: '先天命盘解析', subLabel: '构建分析上下文' },
-  { id: 5, label: '大限与流年解析', subLabel: '生成命理解读' },
-  { id: 6, label: '输出解码结果', subLabel: '校验与呈现' },
-]
 
 // 页面加载状态
 function ReportPageLoading() {
@@ -74,14 +64,8 @@ function ReportPageContent() {
   const hasJobFromUrl = Boolean(jobId && archiveId)
   // 当前查看的档案：URL 优先，避免侧栏切换档案时仍显示上一个有报告档案的内容
   const effectiveArchiveId = archiveIdFromUrl ?? user.currentArchiveId
-  // 仅当「重新生成」时显示分析动画（URL 带 jobId 且是用户主动重试），首次生成在档案页完成
-  const isRetryFromReportPage = searchParams.get('retry') === '1'
-  const [isAnalyzing, setIsAnalyzing] = useState(isRetryFromReportPage)
-  // currentStep：0=第一步进行中 … 5=第六步进行中，6=全部完成。由前端计时驱动，不依赖后端 currentStep
-  const [currentStep, setCurrentStep] = useState(
-    isRetryFromReportPage ? 0 : analysisStepsConfig.length,
-  )
   const [reportFetchedForArchiveId, setReportFetchedForArchiveId] = useState<string | null>(null)
+  const [fetchStatusError, setFetchStatusError] = useState(false) // 按档案拉取状态失败（网络/接口错误），与「确无报告」区分
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [archiveDisplayName, setArchiveDisplayName] = useState<string | null>(null)
   const [showLoadingRegenerate, setShowLoadingRegenerate] = useState(false)
@@ -90,38 +74,64 @@ function ReportPageContent() {
   const noReportForCurrentArchive = !hasJobFromUrl && Boolean(effectiveArchiveId) && reportFetchedForArchiveId === effectiveArchiveId && !mainReport
   // 仅当当前 mainReport 属于当前档案时展示报告内容，避免刷新或切换档案时短暂显示上一档案/默认案例
   const reportBelongsToCurrentArchive = mainReport && (!effectiveArchiveId || mainReport.archiveId === effectiveArchiveId)
+  // 主报告页只负责加载并展示报告；动态分析已在档案页完成，此处仅「加载报告中」或报告内容
+  const loadingReport = loadingReportByArchive || (hasJobFromUrl && !mainReport && !generationError)
 
-  // URL 有 jobId+archiveId 时同步为“分析中”，避免点击重新生成/开启解码后无过渡动画
+  // 修复：主报告页刷新后，将 URL 中的 archiveId 同步到 context，确保侧边栏正确显示当前档案
+  // 如果 URL 中没有 archiveId，但用户已登录，获取最新档案并设置到 context 和 URL
   useEffect(() => {
-    if (hasJobFromUrl && jobId && !mainReport && !generationError) {
-      setIsAnalyzing(true)
-      setCurrentStep(0)
+    // 如果 URL 中有 archiveId，同步到 context（确保刷新后侧边栏能正确显示当前档案）
+    if (archiveIdFromUrl) {
+      // 只有当 context 中的 archiveId 与 URL 不一致时，才更新 context
+      if (archiveIdFromUrl !== user.currentArchiveId) {
+        getArchiveCached(archiveIdFromUrl)
+          .then((archive) => {
+            setUser((prev) => ({
+              ...prev,
+              currentArchiveId: archive.id,
+              archiveName: archive.name,
+            }))
+          })
+          .catch(() => {
+            // 如果获取档案失败，仍然设置 archiveId 到 context
+            setUser((prev) => ({
+              ...prev,
+              currentArchiveId: archiveIdFromUrl,
+            }))
+          })
+      }
+      return
     }
-  }, [hasJobFromUrl, jobId, mainReport, generationError])
-
-  // 前端计时驱动步骤：总时长约 70s 平摊至前 5 步，内容生成（50s+）不集中压在最后一步；isAnalyzing 即跑（含点击重新生成后尚未带 jobId 时）
-  useEffect(() => {
-    if (!isAnalyzing) return
-    const stepDurations = [10000, 10000, 12000, 13000, 25000] // 前 5 步合计 ~70s（ms），第 6 步等接口完成即跳转
-    let stepIndex = 0
-    const timeouts: ReturnType<typeof setTimeout>[] = []
-    const scheduleNext = () => {
-      if (stepIndex >= stepDurations.length) return
-      const t = setTimeout(() => {
-        setCurrentStep((prev) => {
-          const next = prev + 1
-          return next > 5 ? 5 : next
-        })
-        stepIndex += 1
-        scheduleNext()
-      }, stepDurations[stepIndex])
-      timeouts.push(t)
+    // 如果 URL 中没有 archiveId，但用户已登录，获取最新档案
+    // 注意：只在刷新页面时执行，如果用户主动清空了 currentArchiveId（创建新档案），不自动跳转
+    // 通过检查是否在 report 页面来判断：如果在 report 页面但没有 archiveId，说明是刷新，需要恢复
+    if (!archiveIdFromUrl && user.isLoggedIn && !user.currentArchiveId) {
+      // 检查当前路径，如果在 /report 页面，说明是刷新，需要恢复档案
+      const currentPath = window.location.pathname
+      if (currentPath === '/report') {
+        listArchivesCached()
+          .then((archives) => {
+            const latestArchive = archives?.[0] // 列表按创建时间倒序，第一个为最新
+            if (latestArchive) {
+              setUser((prev) => ({
+                ...prev,
+                currentArchiveId: latestArchive.id,
+                archiveName: latestArchive.name,
+              }))
+              // 更新 URL 以保持刷新后能恢复
+              router.replace(`/report?archiveId=${latestArchive.id}`, { scroll: false })
+            }
+          })
+          .catch(() => {
+            // 获取档案列表失败，不处理
+          })
+      }
+      // 如果不在 /report 页面（比如在首页），不自动跳转，让用户自己选择
     }
-    scheduleNext()
-    return () => timeouts.forEach(clearTimeout)
-  }, [isAnalyzing])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [archiveIdFromUrl, user.isLoggedIn, user.currentArchiveId])
 
-  // 仅轮询任务是否完成（不依赖后端步进），完成后拉取主报告；若任务完成但数据库无报告或轮询超时，展示错误并允许重新生成
+  // 仅轮询任务是否完成，完成后拉取主报告；若任务完成但数据库无报告或轮询超时，展示错误并允许重新生成
   const POLL_TIMEOUT_MS = 150 * 1000 // 150 秒超时后提示重新生成
   useEffect(() => {
     if (!jobId || !archiveId) return
@@ -131,7 +141,6 @@ function ReportPageContent() {
       try {
         if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
           setGenerationError('报告生成超时，请重新生成')
-          setIsAnalyzing(false)
           return
         }
         const job = await getReportJobStatus(jobId)
@@ -149,13 +158,10 @@ function ReportPageContent() {
             // 任务标记完成但数据库无报告（生成不稳定/未写入），展示错误并允许重新生成
             setGenerationError('报告数据未能加载，请重新生成')
           }
-          setIsAnalyzing(false)
-          setCurrentStep(analysisStepsConfig.length)
           return
         }
         if (job.status === 'failed') {
           setGenerationError(job.error || '报告生成失败，请重试')
-          setIsAnalyzing(false)
           return
         }
       } catch {
@@ -180,43 +186,64 @@ function ReportPageContent() {
     return () => clearTimeout(t)
   }, [hasJobFromUrl, mainReport, generationError])
 
-  // 无 jobId 时按档案查状态：有结果直接展示，有进行中任务则跳转走分析动画，否则显示生成失败；超时则视为无报告并展示重新生成
+  // 无 jobId 时按档案查状态：有结果直接展示，有进行中任务则跳转，否则显示生成失败；请求失败不误判为「无报告」
   const FETCH_STATUS_TIMEOUT_MS = 15 * 1000 // 15 秒
   useEffect(() => {
     if (jobId || !effectiveArchiveId) return
-    setMainReport(null)
+    setFetchStatusError(false)
     setGenerationError(null)
-    setReportFetchedForArchiveId(null)
+    // 仅当当前档案与要拉取的不一致时清空报告；同档案保留旧内容直到新响应，避免刷新/返回时闪「加载」再出内容
+    setMainReport((prev) => (prev && prev.archiveId !== effectiveArchiveId ? null : prev))
+    // 若当前已有该档案的报告则先视为「已拉取」，直接展示内容并后台刷新，避免闪一下加载
+    setReportFetchedForArchiveId((prev) => {
+      const hasReportForThisArchive = mainReport?.archiveId === effectiveArchiveId
+      return hasReportForThisArchive ? effectiveArchiveId : null
+    })
+    // 刷新或首次进入时不用过期 status 缓存，避免读到旧的 report:null 误显示「生成失败」
+    const hasReportToShow = mainReport?.archiveId === effectiveArchiveId
+    if (!hasReportToShow) invalidateMainReport(effectiveArchiveId)
     let cancelled = false
     const timeoutId = setTimeout(() => {
       if (cancelled) return
       setMainReport(null)
       setReportFetchedForArchiveId(effectiveArchiveId)
     }, FETCH_STATUS_TIMEOUT_MS)
-    getReportArchiveStatusCached(effectiveArchiveId).then(({ report, runningJob }) => {
-      if (cancelled) return
-      clearTimeout(timeoutId)
-      if (report) {
-        setMainReport(report)
+    const doFetch = (): Promise<void> =>
+      getReportArchiveStatusCached(effectiveArchiveId).then(({ report, runningJob }) => {
+        if (cancelled) return
+        clearTimeout(timeoutId)
+        setFetchStatusError(false)
+        if (report) {
+          setMainReport(report)
+          setReportFetchedForArchiveId(effectiveArchiveId)
+          return
+        }
+        if (runningJob?.jobId) {
+          router.replace(`/report?jobId=${runningJob.jobId}&archiveId=${effectiveArchiveId}`)
+          setReportFetchedForArchiveId(effectiveArchiveId)
+          return
+        }
+        setMainReport(null)
         setReportFetchedForArchiveId(effectiveArchiveId)
-        return
-      }
-      if (runningJob?.jobId) {
-        router.replace(`/report?jobId=${runningJob.jobId}&archiveId=${effectiveArchiveId}`)
-        setReportFetchedForArchiveId(effectiveArchiveId)
-        return
-      }
-      setMainReport(null)
-      setReportFetchedForArchiveId(effectiveArchiveId)
-    }).catch(() => {
+      })
+
+    let retryTimeoutId: ReturnType<typeof setTimeout> | null = null
+    doFetch().catch(() => {
       if (cancelled) return
-      clearTimeout(timeoutId)
-      setMainReport(null)
-      setReportFetchedForArchiveId(effectiveArchiveId)
+      // 首次失败可能是刷新时 session/档案未就绪，短延迟后重试一次
+      retryTimeoutId = setTimeout(() => {
+        doFetch().catch(() => {
+          if (cancelled) return
+          clearTimeout(timeoutId)
+          setFetchStatusError(true)
+        })
+      }, 600)
     })
+
     return () => {
       cancelled = true
       clearTimeout(timeoutId)
+      if (retryTimeoutId != null) clearTimeout(retryTimeoutId)
     }
   }, [jobId, effectiveArchiveId, router])
 
@@ -424,102 +451,23 @@ function ReportPageContent() {
             填写编码并生成
           </Button>
         </div>
-      ) : loadingReportByArchive ? (
-        /* 根据档案拉取报告中 */
+      ) : (loadingReport || (!reportBelongsToCurrentArchive && !generationError && !noReportForCurrentArchive)) ? (
+        /* 主报告页仅展示「加载报告中」；动态分析已在档案页完成。已确认无报告时走下方 noReportForCurrentArchive */
         <div className="px-5 py-12 flex-1 flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground">加载报告中...</p>
-        </div>
-      ) : isAnalyzing ? (
-        /* Analyzing State */
-        <div className="px-5 py-8 min-h-[calc(100vh-130px)] flex flex-col">
-          {/* User Info Section - Top Position */}
-          <section className="text-center space-y-3 mb-8">
-            <h1 className="text-2xl tracking-[0.2em] font-semibold">{(archiveDisplayName ?? user.archiveName) || '档案'}</h1>
-            <p className="text-xs text-muted-foreground">正在解码中...</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              解码不会因关闭页面而中断，完成后将通过邮箱通知
-            </p>
-          </section>
-
-          <Separator className="bg-border mb-6" />
-
-          {/* Analysis Steps：与时辰→八字→排盘→内容对应，进行中步骤显示转圈避免卡死感 */}
-          <div className="space-y-4 flex-1">
-            {analysisStepsConfig.map((step, index) => {
-              const isCompleted = index < currentStep
-              const isInProgress = index === currentStep && isAnalyzing
-
-              return (
-                <div key={step.id} className="flex items-start gap-4">
-                  <div className="flex flex-col items-center pt-1">
-                    <div
-                      className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-500 shrink-0 ${
-                        isCompleted
-                          ? 'bg-primary text-primary-foreground'
-                          : isInProgress
-                            ? 'bg-primary/10 border-2 border-primary'
-                            : 'bg-border text-muted-foreground'
-                      }`}
-                    >
-                      {isCompleted ? (
-                        <span className="text-primary">✓</span>
-                      ) : isInProgress ? (
-                        <div
-                          className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin"
-                          aria-hidden
-                        />
-                      ) : (
-                        <span className="text-muted-foreground">○</span>
-                      )}
-                    </div>
-                    {index < analysisStepsConfig.length - 1 && (
-                      <div
-                        className={`w-0.5 h-12 transition-colors duration-500 ${
-                          isCompleted ? 'bg-primary' : 'bg-border'
-                        }`}
-                      />
-                    )}
-                  </div>
-
-                  <div className="flex-1 pt-0.5 min-w-0">
-                    <p
-                      className={`text-sm font-medium tracking-wide transition-colors duration-500 ${
-                        isCompleted || isInProgress ? 'text-foreground' : 'text-muted-foreground'
-                      }`}
-                    >
-                      {step.label}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {isCompleted ? '已完成' : isInProgress ? '进行中…' : step.subLabel ?? '待处理'}
-                    </p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* 进度：前几步按计时显示，最后一步长时间显示约 90% + 转圈 */}
-          <div className="mt-8 pt-6 border-t border-border text-center space-y-2">
-            <p className="text-2xl font-medium text-primary">
-              {isAnalyzing && currentStep < 5
-                ? Math.round(((currentStep + 1) / analysisStepsConfig.length) * 100)
-                : isAnalyzing && currentStep === 5
-                  ? 92
-                  : 100}
-              %
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {isAnalyzing && currentStep === 5 ? '正在生成命理解读…' : '分析进度'}
-            </p>
-          </div>
-        </div>
-      ) : !reportBelongsToCurrentArchive && !generationError ? (
-        /* 报告未就绪或属于其他档案：避免刷新/切换时显示默认案例内容；若有 generationError 则走下方 Report State 展示重新生成；加载过久则展示重新生成入口 */
-        <div className="px-5 py-12 flex-1 flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground">加载报告中...</p>
-          {showLoadingRegenerate && effectiveArchiveId && (
+          {fetchStatusError ? (
+            <>
+              <p className="text-sm text-muted-foreground">加载失败，请刷新重试</p>
+              <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="rounded-full">
+                刷新页面
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-muted-foreground">加载报告中...</p>
+            </>
+          )}
+          {showLoadingRegenerate && effectiveArchiveId && !fetchStatusError && (
             <div className="pt-4 space-y-2">
               <p className="text-xs text-muted-foreground">加载时间较长，可能报告未写入</p>
               <Button
@@ -537,7 +485,7 @@ function ReportPageContent() {
           )}
         </div>
       ) : noReportForCurrentArchive ? (
-        /* 获取不到报告：显示生成失败，点击重新生成后直接进入上方分析过渡动画 */
+        /* 获取不到报告：显示生成失败，点击重新生成后跳转带 jobId 的 report 页，由档案页或本页仅展示加载报告中 */
         <div className="px-5 py-12 flex-1 flex flex-col items-center justify-center text-center space-y-6">
           <p className="text-sm font-medium text-foreground">生成失败</p>
           <p className="text-xs text-muted-foreground max-w-xs">
@@ -562,8 +510,6 @@ function ReportPageContent() {
                 setRetryError(null)
                 setMainReport(null)
                 setGenerationError(null)
-                setIsAnalyzing(true)
-                setCurrentStep(0)
                 setIsRegenerating(true)
                 try {
                   const { jobId: newJobId } = await createReportJobRetry(effectiveArchiveId)
@@ -577,7 +523,6 @@ function ReportPageContent() {
                   } else {
                     setRetryError('重新生成失败，请稍后再试')
                   }
-                  setIsAnalyzing(false)
                 } finally {
                   setIsRegenerating(false)
                 }
@@ -592,7 +537,7 @@ function ReportPageContent() {
         /* Report State */
         <div className="px-5 py-8 space-y-8 flex flex-col">
           {generationError ? (
-            /* 生成失败：点击重新生成后直接进入分析过渡动画，不展示开启解码大按钮 */
+            /* 生成失败：点击重新生成后跳转带 jobId 的 report 页，仅展示加载报告中 */
             <section className="space-y-6 text-center py-12">
               <p className="text-sm font-medium text-foreground">生成失败</p>
               <p className="text-xs text-muted-foreground max-w-xs mx-auto whitespace-pre-wrap">{generationError}</p>
@@ -613,8 +558,6 @@ function ReportPageContent() {
                     if (!aid || isRegenerating) return
                     setGenerationError(null)
                     setMainReport(null)
-                    setIsAnalyzing(true)
-                    setCurrentStep(0)
                     setIsRegenerating(true)
                     try {
                       const { jobId: newJobId } = await createReportJobRetry(aid)
@@ -628,7 +571,6 @@ function ReportPageContent() {
                       } else {
                         setGenerationError('重新生成失败，请稍后再试')
                       }
-                      setIsAnalyzing(false)
                     } finally {
                       setIsRegenerating(false)
                     }

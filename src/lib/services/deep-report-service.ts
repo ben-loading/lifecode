@@ -3,7 +3,8 @@
  * 整合档案 + iztro + 主报告、Prompt 构建、LLM 调用、Zod 验证、落库
  */
 
-import { getArchiveById, getMainReportByArchiveId, createDeepReport } from '@/lib/db'
+import { getArchiveById, getMainReportByArchiveId, createDeepReport, findArchiveByNormalizedBirth, getDeepReportByArchiveAndType } from '@/lib/db'
+import { normalizeBirthInfo } from './birth-normalizer'
 import { buildFutureFortunePrompt, buildCareerPathPrompt, buildWealthRoadPrompt, buildLoveMarriagePrompt } from './prompt-builder'
 import { callLLM } from './llm-service'
 import {
@@ -45,6 +46,28 @@ export async function generateDeepReport(archiveId: string, reportType: DeepRepo
   const archive = await getArchiveById(archiveId)
   if (!archive) throw new Error(`Archive not found: ${archiveId}`)
 
+  // 【新增】计算标准化命盘信息（日期 + 时辰）
+  const normalized = normalizeBirthInfo(archive)
+  
+  // 【新增】查询是否有相同命盘的已有报告
+  const existingArchive = await findArchiveByNormalizedBirth(
+    archive.gender,
+    normalized.normalizedBirthDate,
+    normalized.normalizedTimeIndex,
+    archiveId  // 排除当前档案
+  )
+  
+  // 【新增】如果找到相同命盘的报告，直接复用（不调用 LLM）
+  if (existingArchive) {
+    const existingReport = await getDeepReportByArchiveAndType(existingArchive.id, normalizedType)
+    if (existingReport) {
+      // 复制报告内容到新档案
+      await createDeepReport(archiveId, normalizedType, existingReport.content)
+      return existingReport.content  // 直接返回，不调用 LLM，节省成本
+    }
+  }
+
+  // 如果没有复用，继续原有流程（需要主报告）
   const mainReport = await getMainReportByArchiveId(archiveId)
   if (!mainReport) throw new Error('主报告不存在，请先完成主报告生成')
 

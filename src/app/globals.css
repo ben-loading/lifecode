@@ -129,3 +129,26 @@
     overflow: hidden;
   }
 }
+
+@layer components {
+  /* Toast 样式优化 */
+  [data-sonner-toast] {
+    @apply font-serif;
+  }
+  
+  [data-sonner-toast][data-type="error"] {
+    @apply border-destructive/20;
+  }
+  
+  [data-sonner-toast][data-type="success"] {
+    @apply border-primary/20;
+  }
+  
+  [data-sonner-toast][data-type="info"] {
+    @apply border-primary/20;
+  }
+  
+  [data-sonner-toast][data-type="warning"] {
+    @apply border-amber-500/20;
+  }
+}

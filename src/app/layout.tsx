@@ -2,6 +2,7 @@ import React from "react"
 import type { Metadata } from 'next'
 import { Noto_Serif_SC, Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { Toaster } from 'sonner'
 import { AppProvider } from '@/lib/context'
 import './globals.css'
 
@@ -52,6 +53,27 @@ export default function RootLayout({
             {children}
           </div>
         </AppProvider>
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            classNames: {
+              toast:
+                '!bg-card !text-card-foreground !border !border-border !shadow-lg !rounded-lg !font-serif',
+              description: '!text-muted-foreground',
+              actionButton:
+                '!bg-primary !text-primary-foreground !rounded-lg hover:!opacity-90',
+              cancelButton:
+                '!bg-muted !text-muted-foreground !rounded-lg hover:!opacity-90',
+              closeButton:
+                '!bg-transparent !text-muted-foreground hover:!text-foreground hover:!bg-muted !rounded-lg',
+            },
+            style: {
+              borderRadius: '0.5rem',
+            },
+          }}
+          richColors
+          closeButton
+        />
         <Analytics />
       </body>
     </html>

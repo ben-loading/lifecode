@@ -7,6 +7,13 @@ import { useAppContext } from '@/lib/context'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { setToken, flushPendingInviteRef, getTransactions } from '@/lib/api-client'
 
+/** 简单邮箱格式：含 @ 且 @ 后含至少一个点，前后无空白 */
+function isValidEmail(s: string): boolean {
+  const t = s.trim()
+  if (!t) return false
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)
+}
+
 interface LoginModalProps {
   isOpen: boolean
   onClose: () => void
@@ -32,12 +39,17 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
   }, [isOpen])
 
   const handleSendCode = async () => {
-    if (!email?.trim()) return
+    const trimmed = email?.trim()
+    if (!trimmed) return
+    if (!isValidEmail(trimmed)) {
+      setError('请输入有效的邮箱地址')
+      return
+    }
     setError('')
     try {
       const supabase = getSupabaseClient()
       const { error: err } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
+        email: trimmed,
         options: { shouldCreateUser: true },
       })
       if (err) throw err
@@ -53,7 +65,12 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
   }
 
   const handleSubmit = async () => {
-    if (!email?.trim() || !code?.trim()) return
+    const trimmed = email?.trim()
+    if (!trimmed || !code?.trim()) return
+    if (!isValidEmail(trimmed)) {
+      setError('请输入有效的邮箱地址')
+      return
+    }
     if (code.trim().length !== 6) {
       setError('请输入6位数字验证码')
       return
@@ -63,7 +80,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
     try {
       const supabase = getSupabaseClient()
       const { data, error: err } = await supabase.auth.verifyOtp({
-        email: email.trim(),
+        email: trimmed,
         token: code.trim(),
         type: 'email',
       })
@@ -126,10 +143,16 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  if (error === '请输入有效的邮箱地址') setError('')
+                }}
                 placeholder="your@email.com"
                 className="w-full min-w-0 px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary box-border"
               />
+              {email.trim() && !isValidEmail(email.trim()) && (
+                <p className="text-xs text-destructive mt-1">请输入有效的邮箱地址</p>
+              )}
             </div>
 
             <div className="min-w-0">
@@ -149,7 +172,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
                 />
                 <button
                   onClick={handleSendCode}
-                  disabled={!email || countdown > 0}
+                  disabled={!email.trim() || !isValidEmail(email.trim()) || countdown > 0}
                   className="w-full sm:w-auto sm:shrink-0 px-4 py-2.5 border border-border rounded-lg text-xs font-medium hover:bg-muted/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {countdown > 0 ? `${countdown}s` : codeSent ? '重新发送' : '发送'}
@@ -161,7 +184,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
           <Button
             onClick={handleSubmit}
             className="w-full min-w-0 h-11 rounded-lg"
-            disabled={!email || code.trim().length !== 6 || loading}
+            disabled={!email.trim() || !isValidEmail(email.trim()) || code.trim().length !== 6 || loading}
           >
             {loading ? '登录中...' : '登 录'}
           </Button>
