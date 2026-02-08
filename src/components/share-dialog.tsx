@@ -63,7 +63,7 @@ export function ShareDialog({
       ctx.fillStyle = '#8B4513'
       ctx.font = 'bold 48px system-ui'
       ctx.textAlign = 'center'
-      ctx.fillText('人生解码', 400, 150)
+      ctx.fillText('人生解碼', 400, 150)
 
       // 绘制分割线
       ctx.fillStyle = '#8B4513'
@@ -76,7 +76,7 @@ export function ShareDialog({
       // 绘制人生剧本标签
       ctx.fillStyle = '#999'
       ctx.font = '20px system-ui'
-      ctx.fillText('人生剧本', 400, 350)
+      ctx.fillText('人生劇本', 400, 350)
 
       // 绘制人生剧本标题
       ctx.fillStyle = '#8B4513'
@@ -117,7 +117,7 @@ export function ShareDialog({
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')
           a.href = url
-          a.download = `${archiveName}-人生解码.png`
+          a.download = `${archiveName}-人生解碼.png`
           a.click()
           URL.revokeObjectURL(url)
         }
@@ -147,7 +147,7 @@ export function ShareDialog({
             <div className="relative z-10 text-center space-y-6">
               {/* Title */}
               <div className="space-y-2">
-                <h1 className="text-3xl font-bold text-primary tracking-wider">人生解码</h1>
+                <h1 className="text-3xl font-bold text-primary tracking-wider">人生解碼</h1>
                 <div className="h-1 w-16 bg-primary mx-auto rounded-full" />
               </div>
 
@@ -156,7 +156,7 @@ export function ShareDialog({
 
               {/* Life Script */}
               <div className="space-y-2 max-w-xs">
-                <p className="text-xs text-muted-foreground tracking-wider">人生剧本</p>
+                <p className="text-xs text-muted-foreground tracking-wider">人生劇本</p>
                 <h3 className="text-lg font-medium text-primary tracking-wide">{lifeScriptTitle}</h3>
               </div>
 
@@ -176,14 +176,14 @@ export function ShareDialog({
               className="w-full justify-center gap-2 bg-transparent"
             >
               <Link2 className="w-4 h-4" />
-              {copied ? '已复制链接' : '复制分享链接'}
+              {copied ? '已複製連結' : '複製分享連結'}
             </Button>
             <Button
               onClick={handleDownloadImage}
               className="w-full justify-center gap-2"
             >
               <Download className="w-4 h-4" />
-              下载分享图片
+              下載分享圖片
             </Button>
           </div>
         </div>
