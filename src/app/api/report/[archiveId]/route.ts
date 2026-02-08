@@ -13,11 +13,11 @@ export async function GET(
     const { archiveId } = await params
     const archive = await getArchiveById(archiveId)
     if (!archive || archive.userId !== userId) {
-      return NextResponse.json({ error: '档案不存在' }, { status: 404 })
+      return NextResponse.json({ error: '檔案不存在' }, { status: 404 })
     }
     const report = await getMainReportByArchiveId(archiveId)
     if (!report) {
-      return NextResponse.json({ error: '报告未生成' }, { status: 404 })
+      return NextResponse.json({ error: '報告未生成' }, { status: 404 })
     }
     return NextResponse.json(report)
   } catch (e) {

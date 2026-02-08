@@ -10,18 +10,18 @@ export async function POST(request: Request) {
     const userId = await getUserIdFromRequest(request)
     if (!userId) return unauthorized()
     const user = await getUserById(userId)
-    if (!user) return NextResponse.json({ error: '用户不存在' }, { status: 404 })
+    if (!user) return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
 
     const body = await parseJsonBody<{ archiveId?: string; reportType?: string }>(request)
-    if (body == null) return badRequest('请求体无效')
+    if (body == null) return badRequest('請求體無效')
     const archiveId = typeof body.archiveId === 'string' ? body.archiveId.trim() : ''
     const reportType = typeof body.reportType === 'string' ? body.reportType.trim() : ''
     if (!archiveId || !reportType) return badRequest('缺少 archiveId 或 reportType')
-    if (!DEEP_REPORT_TYPES.includes(reportType as DeepReportType)) return badRequest('无效的 reportType')
+    if (!DEEP_REPORT_TYPES.includes(reportType as DeepReportType)) return badRequest('無效的 reportType')
 
     const archive = await getArchiveById(archiveId)
     if (!archive || archive.userId !== userId) {
-      return NextResponse.json({ error: '档案不存在' }, { status: 404 })
+      return NextResponse.json({ error: '檔案不存在' }, { status: 404 })
     }
     if (user.balance < DEEP_REPORT_COST) {
       return NextResponse.json(

@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const userId = await getUserIdFromRequest(request)
     if (!userId) return unauthorized()
     const user = await getUserById(userId)
-    if (!user) return unauthorized('用户不存在')
+    if (!user) return unauthorized('用戶不存在')
     return NextResponse.json({
       user: {
         id: user.id,

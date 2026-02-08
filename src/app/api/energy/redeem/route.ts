@@ -8,15 +8,15 @@ export async function POST(request: Request) {
     const userId = await getUserIdFromRequest(request)
     if (!userId) return unauthorized()
     const user = await getUserById(userId)
-    if (!user) return NextResponse.json({ error: '用户不存在' }, { status: 404 })
+    if (!user) return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
 
     const body = await parseJsonBody<{ code?: string }>(request)
     const code = body && typeof body.code === 'string' ? body.code.trim().toUpperCase() : ''
-    if (!code) return badRequest('请输入兑换码')
+    if (!code) return badRequest('請輸入兌換碼')
 
     const record = await getRedemptionCode(code)
-    if (!record) return badRequest('兑换码无效')
-    if (record.usedBy) return badRequest('该兑换码已被使用')
+    if (!record) return badRequest('兌換碼無效')
+    if (record.usedBy) return badRequest('該兌換碼已被使用')
 
     await redeemCode(code, userId)
     await updateUserBalance(userId, record.amount)

@@ -8,12 +8,12 @@ export async function POST(request: Request) {
     const userId = await getUserIdFromRequest(request)
     if (!userId) return unauthorized()
     const user = await getUserById(userId)
-    if (!user) return NextResponse.json({ error: '用户不存在' }, { status: 404 })
+    if (!user) return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
 
     const body = await parseJsonBody<{ amount?: number }>(request)
-    if (body == null) return badRequest('请求体无效')
+    if (body == null) return badRequest('請求體無效')
     const amount = typeof body.amount === 'number' ? Math.max(0, Math.floor(body.amount)) : 0
-    if (amount <= 0) return badRequest('充值金额无效')
+    if (amount <= 0) return badRequest('充值金額無效')
 
     await updateUserBalance(userId, amount)
     await createTransaction(userId, {

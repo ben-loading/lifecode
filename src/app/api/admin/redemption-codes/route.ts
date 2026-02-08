@@ -5,7 +5,7 @@ import { parseJsonBody, badRequest, unauthorized, serverError } from '@/lib/api-
 
 /**
  * POST /api/admin/redemption-codes
- * 创建兑换码
+ * 創建兌換碼
  */
 export async function POST(request: Request) {
   try {
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const note = body?.note
 
     if (!amount || typeof amount !== 'number' || amount <= 0) {
-      return badRequest('能量值必须为正整数')
+      return badRequest('能量值必須為正整數')
     }
 
     const result = await createRedemptionCode({
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
 /**
  * GET /api/admin/redemption-codes
- * 查询兑换码列表
+ * 查詢兌換碼列表
  */
 export async function GET(request: Request) {
   try {

@@ -13,7 +13,7 @@ export async function GET(
     const { id } = await params
     const archive = await getArchiveById(id)
     if (!archive || archive.userId !== userId) {
-      return NextResponse.json({ error: '档案不存在' }, { status: 404 })
+      return NextResponse.json({ error: '檔案不存在' }, { status: 404 })
     }
     return NextResponse.json(archive)
   } catch (e) {

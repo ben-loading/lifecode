@@ -40,8 +40,8 @@ export async function GET() {
     message: '服务端环境变量检查（仅显示是否设置，不暴露值）',
     env,
     summary: {
-      supabase: allSupabase ? '已配置' : '缺少 Supabase 变量',
-      llm: llmOk ? '已配置，主报告可生成' : llmError ?? 'LLM 未配置',
+      supabase: allSupabase ? '已配置' : '缺少 Supabase 變量',
+      llm: llmOk ? '已配置，主報告可生成' : llmError ?? 'LLM 未配置',
     },
     hint: '若某项为 false 或 LLM 未配置，请在 Vercel → Settings → Environment Variables 中配置对应变量，保存后必须重新部署（Redeploy）才会生效。',
   })

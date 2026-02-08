@@ -18,7 +18,7 @@ export async function GET(
     const { archiveId } = await params
     const archive = await getArchiveById(archiveId)
     if (!archive || archive.userId !== userId) {
-      return NextResponse.json({ error: '档案不存在' }, { status: 404 })
+      return NextResponse.json({ error: '檔案不存在' }, { status: 404 })
     }
     const [report, runningJob] = await Promise.all([
       getMainReportByArchiveId(archiveId),

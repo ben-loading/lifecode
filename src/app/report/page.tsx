@@ -432,7 +432,7 @@ function ReportPageContent() {
           <button
             onClick={() => router.push('/chart')}
             className="text-foreground hover:opacity-70 transition-opacity"
-            aria-label="查看紫微斗数命盘"
+            aria-label="查看紫微斗數命盤"
           >
             <BookOpen className="w-5 h-5 text-muted-foreground" />
           </button>
@@ -503,7 +503,7 @@ function ReportPageContent() {
               onClick={() => router.push('/input')}
               className="text-xs text-primary underline hover:no-underline"
             >
-              {t('去填写出生信息')}
+              {t('去填寫出生資訊')}
             </button>
           ) : (
             <Button
@@ -551,7 +551,7 @@ function ReportPageContent() {
                   onClick={() => router.push('/input')}
                   className="text-xs text-primary underline hover:no-underline"
                 >
-                  {t('去填写出生信息')}
+                  {t('去填寫出生資訊')}
                 </button>
               ) : (
                 <Button
@@ -589,7 +589,7 @@ function ReportPageContent() {
           <div className="pb-28 space-y-8">
           {/* User Info Section */}
           <section className="text-center space-y-3">
-            <h1 className="text-2xl tracking-[0.2em] font-semibold">{(archiveDisplayName ?? user.archiveName) || '档案'}</h1>
+            <h1 className="text-2xl tracking-[0.2em] font-semibold">{(archiveDisplayName ?? user.archiveName) || '檔案'}</h1>
             <p className="text-sm text-muted-foreground tracking-wide">{mainReport?.baziDisplay ?? '—'}</p>
           </section>
 
@@ -956,7 +956,7 @@ function ReportPageContent() {
       <SideMenu
         isOpen={showMenu}
         onClose={() => setShowMenu(false)}
-        archiveName={(archiveDisplayName ?? user.archiveName) || '档案'}
+        archiveName={(archiveDisplayName ?? user.archiveName) || '檔案'}
         userEmail={user.email || 'luo luo@gmail.com'}
       />
 
@@ -964,7 +964,7 @@ function ReportPageContent() {
       <ShareDialog
         isOpen={showShareDialog}
         onClose={() => setShowShareDialog(false)}
-        archiveName={(archiveDisplayName ?? user.archiveName) || '档案'}
+        archiveName={(archiveDisplayName ?? user.archiveName) || '檔案'}
         lifeScriptTitle={lifeScript.title}
         coreAbility={coreAbility}
       />

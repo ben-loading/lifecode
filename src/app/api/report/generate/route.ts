@@ -73,7 +73,7 @@ async function runReportJobInRequest(jobId: string, archiveId: string): Promise<
       console.error('[report/generate] Generation failed:', msg)
       await updateReportJob(jobId, {
         status: 'failed',
-        stepLabel: '报告生成失败',
+        stepLabel: '報告生成失敗',
         error: msg,
       })
     }
@@ -86,22 +86,22 @@ export async function POST(request: Request) {
     if (!userId) return unauthorized()
 
     const body = await parseJsonBody<{ archiveId?: string; retry?: boolean }>(request)
-    if (body == null) return badRequest('请求体无效')
+    if (body == null) return badRequest('請求體無效')
     const archiveId = typeof body.archiveId === 'string' ? body.archiveId.trim() : ''
     if (!archiveId) return badRequest('缺少 archiveId')
     const isRetry = body.retry === true
 
     const archive = await getArchiveById(archiveId)
     if (!archive || archive.userId !== userId) {
-      return NextResponse.json({ error: '档案不存在' }, { status: 404 })
+      return NextResponse.json({ error: '檔案不存在' }, { status: 404 })
     }
     const user = await getUserById(userId)
-    if (!user) return NextResponse.json({ error: '用户不存在' }, { status: 404 })
+    if (!user) return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
 
     const runningJob = await getRunningReportJobForArchive(archiveId)
     if (runningJob) {
       return NextResponse.json(
-        { error: '该档案已有生成任务进行中，请稍后再试', code: 'JOB_ALREADY_RUNNING' },
+        { error: '該檔案已有生成任務進行中，請稍後再試', code: 'JOB_ALREADY_RUNNING' },
         { status: 409 }
       )
     }
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
       const hasJob = await hasReportJobForArchive(archiveId)
       if (!hasJob) {
         return NextResponse.json(
-          { error: '请先使用「开启解码」生成报告', code: 'NEED_FIRST_GENERATE' },
+          { error: '請先使用「開啟解碼」生成報告', code: 'NEED_FIRST_GENERATE' },
           { status: 400 }
         )
       }

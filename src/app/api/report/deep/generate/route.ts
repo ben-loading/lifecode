@@ -26,29 +26,29 @@ export async function POST(request: Request) {
     if (!userId) return unauthorized()
 
     const body = await parseJsonBody<{ archiveId?: string; reportType?: string; retry?: boolean }>(request)
-    if (body == null) return badRequest('请求体无效')
+    if (body == null) return badRequest('請求體無效')
     const archiveId = typeof body.archiveId === 'string' ? body.archiveId.trim() : ''
     const reportType = typeof body.reportType === 'string' ? body.reportType.trim() : ''
     const isRetry = body.retry === true
     if (!archiveId || !reportType) return badRequest('缺少 archiveId 或 reportType')
-    if (!DEEP_REPORT_TYPES.includes(reportType as DeepReportType)) return badRequest('无效的 reportType')
+    if (!DEEP_REPORT_TYPES.includes(reportType as DeepReportType)) return badRequest('無效的 reportType')
 
     const archive = await getArchiveById(archiveId)
     if (!archive || archive.userId !== userId) {
-      return NextResponse.json({ error: '档案不存在' }, { status: 404 })
+      return NextResponse.json({ error: '檔案不存在' }, { status: 404 })
     }
     const user = await getUserById(userId)
-    if (!user) return NextResponse.json({ error: '用户不存在' }, { status: 404 })
+    if (!user) return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
 
     const existingReport = await getDeepReportByArchiveAndType(archiveId, reportType)
     if (existingReport) {
-      return NextResponse.json({ error: '该深度报告已生成', code: 'REPORT_ALREADY_EXISTS' }, { status: 400 })
+      return NextResponse.json({ error: '該深度報告已生成', code: 'REPORT_ALREADY_EXISTS' }, { status: 400 })
     }
 
     const runningJob = await getRunningDeepReportJobForArchive(archiveId, reportType)
     if (runningJob) {
       return NextResponse.json(
-        { error: '该深度报告已有任务进行中，请稍后再试', code: 'JOB_ALREADY_RUNNING' },
+        { error: '該深度報告已有任務進行中，請稍後再試', code: 'JOB_ALREADY_RUNNING' },
         { status: 409 }
       )
     }
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     const canRetryWithoutCharge =
       isRetry && (lastJob?.status === 'failed' || (lastJob?.status === 'completed' && !existingReport))
     if (isRetry && !canRetryWithoutCharge) {
-      return NextResponse.json({ error: '无需重试或无可重试任务', code: 'NO_RETRY_NEEDED' }, { status: 400 })
+      return NextResponse.json({ error: '無需重試或無可重試任務', code: 'NO_RETRY_NEEDED' }, { status: 400 })
     }
 
     if (!canRetryWithoutCharge && user.balance < DEEP_REPORT_COST) {
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     // 扣费前再查一次：防止并发或前一步误判导致重复扣费、重复生成
     const existingReportAgain = await getDeepReportByArchiveAndType(archiveId, reportType)
     if (existingReportAgain) {
-      return NextResponse.json({ error: '该深度报告已生成', code: 'REPORT_ALREADY_EXISTS' }, { status: 400 })
+      return NextResponse.json({ error: '該深度報告已生成', code: 'REPORT_ALREADY_EXISTS' }, { status: 400 })
     }
 
     if (!canRetryWithoutCharge) {
@@ -100,8 +100,8 @@ export async function POST(request: Request) {
         console.error('[report/deep/generate] DeepReport not found after generateDeepReport')
         await updateDeepReportJob(jobId, {
           status: 'failed',
-          stepLabel: '报告生成失败',
-          error: '报告未正确写入数据库',
+          stepLabel: '報告生成失敗',
+          error: '報告未正確寫入數據庫',
         })
       } else {
         await updateDeepReportJob(jobId, {
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
       console.error('[report/deep/generate] Generation failed:', msg)
       await updateDeepReportJob(jobId, {
         status: 'failed',
-        stepLabel: '报告生成失败',
+        stepLabel: '報告生成失敗',
         error: msg,
       })
     }

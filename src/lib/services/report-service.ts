@@ -42,9 +42,10 @@ export async function generateMainReport(archiveId: string): Promise<ApiMainRepo
   if (existingArchive) {
     const existingReport = await getMainReportByArchiveId(existingArchive.id)
     if (existingReport) {
-      // 复制报告内容到新档案（报告已经是繁体，无需转换）
+      // 复制报告内容到新档案，确保转换为繁体中文（兼容旧报告可能是简体的情况）
+      const traditionalReport = convertReportToTraditional(existingReport) as ApiMainReport
       const newReport: ApiMainReport = {
-        ...existingReport,
+        ...traditionalReport,
         id: `report_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
         archiveId: archiveId,
         createdAt: new Date().toISOString()

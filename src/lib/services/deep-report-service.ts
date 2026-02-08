@@ -66,9 +66,10 @@ export async function generateDeepReport(archiveId: string, reportType: DeepRepo
   if (existingArchive) {
     const existingReport = await getDeepReportByArchiveAndType(existingArchive.id, normalizedType)
     if (existingReport) {
-      // 复制报告内容到新档案（报告已经是繁体，无需转换）
-      await createDeepReport(archiveId, normalizedType, existingReport.content)
-      return existingReport.content  // 直接返回，不调用 LLM，节省成本
+      // 复制报告内容到新档案，确保转换为繁体中文（兼容旧报告可能是简体的情况）
+      const traditionalContent = convertReportToTraditional(existingReport.content) as Record<string, unknown>
+      await createDeepReport(archiveId, normalizedType, traditionalContent)
+      return traditionalContent  // 直接返回，不调用 LLM，节省成本
     }
   }
 

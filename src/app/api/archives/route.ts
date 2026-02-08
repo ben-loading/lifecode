@@ -22,17 +22,17 @@ export async function POST(request: Request) {
     if (!userId) return unauthorized()
 
     const body = await parseJsonBody<CreateArchiveBody>(request)
-    if (body == null) return badRequest('请求体无效')
+    if (body == null) return badRequest('請求體無效')
     const { name, gender, birthDate, birthLocation, birthCalendar, birthTimeMode, birthTimeBranch, lunarDate, isLeapMonth } = body
     if (!name?.trim() || !gender || !birthDate) {
       return badRequest('缺少 name / gender / birthDate')
     }
     const useShichen = birthTimeMode === 'shichen'
     if (!useShichen && !(birthLocation ?? '').trim()) {
-      return badRequest('选择具体时间时需提供出生地区 birthLocation')
+      return badRequest('選擇具體時間時需提供出生地區 birthLocation')
     }
     if (birthCalendar === 'lunar' && !lunarDate?.trim()) {
-      return badRequest('农历需提供 lunarDate')
+      return badRequest('農曆需提供 lunarDate')
     }
     const archive = await dbCreateArchive(userId, {
       name: name.trim(),

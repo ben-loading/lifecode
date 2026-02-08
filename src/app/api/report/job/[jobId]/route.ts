@@ -37,11 +37,11 @@ export async function PATCH(
     }
     const body = await parseJsonBody<{ status: 'completed' | 'failed'; error?: string }>(request)
     if (!body?.status || !['completed', 'failed'].includes(body.status)) {
-      return NextResponse.json({ error: 'body.status 须为 completed 或 failed' }, { status: 400 })
+      return NextResponse.json({ error: 'body.status 須為 completed 或 failed' }, { status: 400 })
     }
     const updates: Parameters<typeof updateReportJob>[1] = {
       status: body.status,
-      stepLabel: body.status === 'failed' ? '报告生成失败' : undefined,
+      stepLabel: body.status === 'failed' ? '報告生成失敗' : undefined,
       error: body.error ?? undefined,
     }
     if (body.status === 'completed') {

@@ -5,7 +5,7 @@ import { unauthorized, serverError, badRequest } from '@/lib/api-utils'
 
 /**
  * DELETE /api/admin/redemption-codes/[code]
- * 删除未使用的兑换码
+ * 刪除未使用的兌換碼
  */
 export async function DELETE(
   request: Request,
@@ -16,7 +16,7 @@ export async function DELETE(
     if (!userId) return unauthorized()
 
     const { code } = await params
-    if (!code) return badRequest('兑换码不能为空')
+    if (!code) return badRequest('兌換碼不能為空')
 
     await deleteRedemptionCode(code)
 
