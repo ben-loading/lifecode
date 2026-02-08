@@ -386,7 +386,7 @@ function WealthRoadContentInner() {
             </span>
           </div>
           <p className="text-sm text-foreground/80 leading-[1.75] pl-3 border-l border-border">
-            {财富年度总结.最終建議}
+            {财富年度总结.最终建议}
           </p>
         </section>
       </div>
