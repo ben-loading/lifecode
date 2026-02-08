@@ -61,3 +61,30 @@ export async function getUserIdFromRequest(request: Request): Promise<string | n
 
   return appUser.id
 }
+
+/**
+ * 检查用户是否为管理员
+ * 通过环境变量 ADMIN_EMAILS 配置管理员邮箱列表（逗号分隔）
+ */
+export async function isAdmin(userId: string): Promise<boolean> {
+  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+  if (adminEmails.length === 0) return false
+  
+  const user = await getUserById(userId)
+  if (!user) return false
+  
+  return adminEmails.includes(user.email.toLowerCase())
+}
+
+/**
+ * 从请求中获取用户ID并验证管理员权限
+ */
+export async function getAdminUserIdFromRequest(request: Request): Promise<string> {
+  const userId = await getUserIdFromRequest(request)
+  if (!userId) throw new Error('未登录')
+  
+  const admin = await isAdmin(userId)
+  if (!admin) throw new Error('无管理员权限')
+  
+  return userId
+}

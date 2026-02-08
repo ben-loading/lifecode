@@ -44,26 +44,26 @@ export function PaymentDialog({
           {!isSuccess ? (
             <>
               <div className="text-center">
-                <h2 className="text-lg font-medium text-foreground mb-2">确认支付</h2>
-                <p className="text-xs text-muted-foreground">真人1对1咨询预约</p>
+                <h2 className="text-lg font-medium text-foreground mb-2">確認支付</h2>
+                <p className="text-xs text-muted-foreground">真人1對1諮詢預約</p>
               </div>
 
               <div className="space-y-4">
                 {/* Balance Info */}
                 <div className="flex items-center justify-between py-3 border-b border-border">
-                  <span className="text-sm text-muted-foreground">当前余额</span>
+                  <span className="text-sm text-muted-foreground">當前餘額</span>
                   <span className="text-sm font-medium text-foreground">{currentBalance} 能量</span>
                 </div>
 
                 {/* Payment Amount */}
                 <div className="flex items-center justify-between py-3 border-b border-border">
-                  <span className="text-sm text-muted-foreground">支付金额</span>
+                  <span className="text-sm text-muted-foreground">支付金額</span>
                   <span className="text-lg font-semibold text-primary">{amount} 能量</span>
                 </div>
 
                 {/* After Balance */}
                 <div className="flex items-center justify-between py-3">
-                  <span className="text-sm text-muted-foreground">支付后余额</span>
+                  <span className="text-sm text-muted-foreground">支付後餘額</span>
                   <span className="text-sm font-medium text-foreground">
                     {currentBalance - amount} 能量
                   </span>
@@ -73,7 +73,7 @@ export function PaymentDialog({
               {/* Warning Notice */}
               <div className="bg-muted/30 rounded-lg p-3 border border-border">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  ⚠️ 重要提示：此为虚拟服务费用，支付后不可退换。确认预约后，请在Discord票务频道提交您的预约号。
+                  ⚠️ 重要提示：此為虛擬服務費用，支付後不可退換。確認預約後，請在Discord票務頻道提交您的預約號。
                 </p>
               </div>
 
@@ -92,7 +92,7 @@ export function PaymentDialog({
                   className="flex-1 h-11 rounded-lg"
                   disabled={isProcessing || currentBalance < amount}
                 >
-                  {isProcessing ? '处理中...' : '确认支付'}
+                  {isProcessing ? '處理中...' : '確認支付'}
                 </Button>
               </div>
             </>
@@ -114,7 +114,7 @@ export function PaymentDialog({
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-foreground mb-2">支付成功</h3>
-              <p className="text-sm text-muted-foreground">正在生成预约号...</p>
+              <p className="text-sm text-muted-foreground">正在生成預約號...</p>
             </div>
           )}
         </div>

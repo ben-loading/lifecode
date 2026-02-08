@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     await createTransaction(userId, {
       type: 'consume',
       amount: DEEP_REPORT_COST,
-      description: `深度报告：${reportType}`,
+      description: `深度報告：${reportType}`,
     })
 
     const updated = await getUserById(userId)

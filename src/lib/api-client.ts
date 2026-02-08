@@ -192,6 +192,70 @@ export async function getDeepReportJobStatus(jobId: string): Promise<ApiDeepRepo
   return request<ApiDeepReportJob>(`/report/deep/status/${jobId}`)
 }
 
+// ==================== Admin ====================
+
+export interface AdminRedemptionCode {
+  code: string
+  amount: number
+  usedBy?: string
+  usedByEmail?: string
+  usedAt?: string
+  createdAt?: string
+  note?: string
+}
+
+export interface CreateRedemptionCodeResponse {
+  code: string
+  amount: number
+  createdAt: string
+}
+
+export interface ListRedemptionCodesResponse {
+  codes: AdminRedemptionCode[]
+  total: number
+}
+
+/**
+ * 创建兑换码（管理员）
+ */
+export async function createRedemptionCode(params: {
+  amount: number
+  note?: string
+}): Promise<CreateRedemptionCodeResponse> {
+  return request<CreateRedemptionCodeResponse>('/admin/redemption-codes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+}
+
+/**
+ * 查询兑换码列表（管理员）
+ */
+export async function listRedemptionCodes(params?: {
+  limit?: number
+  offset?: number
+  includeUsed?: boolean
+}): Promise<ListRedemptionCodesResponse> {
+  const searchParams: Record<string, string> = {}
+  if (params?.limit) searchParams.limit = String(params.limit)
+  if (params?.offset) searchParams.offset = String(params.offset)
+  if (params?.includeUsed !== undefined) searchParams.includeUsed = String(params.includeUsed)
+  
+  return request<ListRedemptionCodesResponse>('/admin/redemption-codes', {
+    params: searchParams,
+  })
+}
+
+/**
+ * 删除兑换码（管理员）
+ */
+export async function deleteRedemptionCode(code: string): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>(`/admin/redemption-codes/${encodeURIComponent(code)}`, {
+    method: 'DELETE',
+  })
+}
+
 export async function getDeepReport(archiveId: string, reportType: string): Promise<ApiDeepReport | null> {
   return request<ApiDeepReport | null>(`/report/deep/${archiveId}/${reportType}`).catch(() => null)
 }

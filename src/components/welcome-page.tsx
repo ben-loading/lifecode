@@ -16,31 +16,31 @@ export function WelcomePage() {
   const [checkingArchives, setCheckingArchives] = useState(false)
   const [hasCheckedOnce, setHasCheckedOnce] = useState(false) // 标记是否已检查过一次
 
-  // 优化第5点：已有档案的用户默认跳转到主报告页
-  // 注意：只在首次加载时执行一次，避免与"创建新档案"功能冲突
+  // 優化第5點：已有檔案的用戶默認跳轉到主報告頁
+  // 注意：只在首次加載時執行一次，避免與「創建新檔案」功能衝突
   useEffect(() => {
     const checkAndRedirect = async () => {
-      // 如果已经检查过一次，不再自动跳转（避免用户创建新档案后被重置）
+      // 如果已經檢查過一次，不再自動跳轉（避免用戶創建新檔案後被重置）
       if (!user.isLoggedIn || checkingArchives || hasCheckedOnce || user.currentArchiveId) return
       
       setCheckingArchives(true)
-      setHasCheckedOnce(true) // 标记已检查
+      setHasCheckedOnce(true) // 標記已檢查
       try {
         const archives = await listArchivesCached()
         if (archives.length > 0) {
-          // 获取最新档案（按创建时间排序，第一个是最新的）
+          // 獲取最新檔案（按創建時間排序，第一個是最新的）
           const latestArchive = archives[0]
-          // 设置当前档案到 context
+          // 設置當前檔案到 context
           setUser((prev) => ({
             ...prev,
             currentArchiveId: latestArchive.id,
             archiveName: latestArchive.name,
           }))
-          // 跳转到主报告页
+          // 跳轉到主報告頁
           router.replace(`/report?archiveId=${latestArchive.id}`)
         }
       } catch {
-        // 如果获取档案失败，继续显示欢迎页
+        // 如果獲取檔案失敗，繼續顯示歡迎頁
       } finally {
         setCheckingArchives(false)
       }
@@ -70,7 +70,7 @@ export function WelcomePage() {
     <>
       <main className="min-h-screen bg-background text-foreground max-w-md mx-auto flex flex-col">
         {/* Header */}
-        {/* 优化第7点：顶部菜单栏可见性 - 添加 safe-area-inset-top 支持，确保在带灵动岛的 iPhone 等设备上可见 */}
+        {/* 優化第7點：頂部菜單欄可見性 - 添加 safe-area-inset-top 支持，確保在帶靈動島的 iPhone 等設備上可見 */}
         <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border pt-[env(safe-area-inset-top,0px)]">
           <div className="flex items-center justify-between px-5 py-4">
             <button
@@ -79,7 +79,7 @@ export function WelcomePage() {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <span className="text-lg font-medium text-primary">人生解码</span>
+            <span className="text-lg font-medium text-primary">人生解碼</span>
             <div className="w-5" />
           </div>
         </header>
@@ -87,9 +87,9 @@ export function WelcomePage() {
         {/* Content */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 space-y-8">
           <div className="text-center space-y-4">
-            <h1 className="text-4xl font-medium tracking-wider">人生解码</h1>
+            <h1 className="text-4xl font-medium tracking-wider">人生解碼</h1>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              以科学和命理，重新认识自我的蜕程
+              以科學和命理，重新認識自我的蛻程
             </p>
           </div>
 
@@ -97,11 +97,11 @@ export function WelcomePage() {
             onClick={handleStartDecode}
             className="w-full h-12 bg-primary text-primary-foreground rounded-lg font-medium tracking-wider hover:opacity-90 transition-opacity"
           >
-            开启解码
+            開啟解碼
           </button>
 
           <p className="text-xs text-muted-foreground">
-            不用担心，这份编码对会得到安全的保护
+            不用擔心，這份編碼對會得到安全的保護
           </p>
         </div>
       </main>

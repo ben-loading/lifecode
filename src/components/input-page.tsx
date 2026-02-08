@@ -100,20 +100,20 @@ export function InputPage() {
       </header>
 
       <div className="px-5 py-8 space-y-8">
-        {/* 标题区 */}
+        {/* 標題區 */}
         <div className="text-center space-y-3">
-          <h1 className="text-2xl font-medium tracking-wide">填写出生信息</h1>
+          <h1 className="text-2xl font-medium tracking-wide">填寫出生信息</h1>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            准确的时间与地点将提升命理解读的精度
+            準確的時間與地點將提升命理解讀的精度
           </p>
         </div>
 
-        {/* 表单区 */}
+        {/* 表單區 */}
         <div className="space-y-6">
-          {/* 性别 */}
+          {/* 性別 */}
           <div className="space-y-3">
             <label className="block">
-              <span className="text-sm text-muted-foreground">性别</span>
+              <span className="text-sm text-muted-foreground">性別</span>
               <span className="text-xs text-muted-foreground ml-1.5">*</span>
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -146,7 +146,7 @@ export function InputPage() {
           <div className="space-y-4">
             <div className="space-y-3">
               <label className="block">
-                <span className="text-sm text-muted-foreground">历制</span>
+                <span className="text-sm text-muted-foreground">曆制</span>
                 <span className="text-xs text-muted-foreground ml-1.5">*</span>
               </label>
               <div className="inline-flex p-1 bg-muted/30 rounded-lg">
@@ -158,7 +158,7 @@ export function InputPage() {
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  公历
+                  公曆
                 </button>
                 <button
                   onClick={() => setBirthCalendar('lunar')}
@@ -168,14 +168,14 @@ export function InputPage() {
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  农历
+                  農曆
                 </button>
               </div>
             </div>
 
             <div className="space-y-3">
               <label className="block">
-                <span className="text-sm text-muted-foreground">时间方式</span>
+                <span className="text-sm text-muted-foreground">時間方式</span>
                 <span className="text-xs text-muted-foreground ml-1.5">*</span>
               </label>
               <div className="inline-flex p-1 bg-muted/30 rounded-lg">
@@ -187,7 +187,7 @@ export function InputPage() {
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  时辰选择
+                  時辰選擇
                 </button>
                 <button
                   onClick={() => setBirthTimeMode('datetime')}
@@ -197,12 +197,12 @@ export function InputPage() {
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
-                  具体时间
+                  具體時間
                 </button>
               </div>
               {useShichen && (
                 <p className="text-xs text-muted-foreground pl-0.5">
-                  时辰模式下无需填写地区，默认以时辰中点为准
+                  時辰模式下無需填寫地區，默認以時辰中點為準
                 </p>
               )}
             </div>
@@ -210,17 +210,17 @@ export function InputPage() {
 
           <div className="h-px bg-border" />
 
-          {/* 出生日期时间 */}
+          {/* 出生日期時間 */}
           <div className="space-y-3">
             <label className="block">
               <span className="text-sm text-muted-foreground">
-                出生{useLunar ? '农历' : '公历'}日期{useShichen ? '与时辰' : '时间'}
+                出生{useLunar ? '農曆' : '公曆'}日期{useShichen ? '與時辰' : '時間'}
               </span>
               <span className="text-xs text-muted-foreground ml-1.5">*</span>
             </label>
 
             {useLunar ? (
-              /* 农历：年/月/日 + 闰月 + 时辰或具体时间 */
+              /* 農曆：年/月/日 + 閏月 + 時辰或具體時間 */
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-2">
                   <div>
@@ -267,11 +267,11 @@ export function InputPage() {
                     onChange={(e) => setIsLeapMonth(e.target.checked)}
                     className="w-4 h-4 rounded border-border text-primary focus:ring-1 focus:ring-primary/20 transition-shadow"
                   />
-                  <span className="text-muted-foreground group-hover:text-foreground transition-colors">闰月</span>
+                  <span className="text-muted-foreground group-hover:text-foreground transition-colors">閏月</span>
                 </label>
                 {useShichen && (
                   <div>
-                    <label className="text-xs text-muted-foreground block mb-1.5">时辰</label>
+                    <label className="text-xs text-muted-foreground block mb-1.5">時辰</label>
                     <select
                       value={birthTimeBranch}
                       onChange={(e) => setBirthTimeBranch(Number(e.target.value))}
@@ -287,16 +287,16 @@ export function InputPage() {
                 )}
                 {!useShichen && (
                   <div>
-                    <label className="text-xs text-muted-foreground block mb-1.5">具体时刻</label>
+                    <label className="text-xs text-muted-foreground block mb-1.5">具體時刻</label>
                     <DateTimePicker value={birthDate} onChange={setBirthDate} />
                     <p className="text-xs text-muted-foreground mt-2">
-                      用于时辰换算与地区校准
+                      用於時辰換算與地區校準
                     </p>
                   </div>
                 )}
               </div>
             ) : (
-              /* 公历 */
+              /* 公曆 */
               <>
                 {useShichen ? (
                   <div className="space-y-3">
@@ -351,7 +351,7 @@ export function InputPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground block mb-1.5">时辰</label>
+                      <label className="text-xs text-muted-foreground block mb-1.5">時辰</label>
                       <select
                         value={birthTimeBranch}
                         onChange={(e) => setBirthTimeBranch(Number(e.target.value))}
@@ -369,7 +369,7 @@ export function InputPage() {
                   <div className="space-y-2">
                     <DateTimePicker value={birthDate} onChange={setBirthDate} />
                     <p className="text-xs text-muted-foreground">
-                      需配合出生地区，用于真太阳时校准
+                      需配合出生地區，用於真太陽時校準
                     </p>
                   </div>
                 )}
@@ -377,29 +377,29 @@ export function InputPage() {
             )}
           </div>
 
-          {/* 出生地区：仅「具体时间」时显示 */}
+          {/* 出生地區：僅「具體時間」時顯示 */}
           {showRegion && (
             <>
               <div className="h-px bg-border" />
               <div className="space-y-3">
                 <label className="block">
-                  <span className="text-sm text-muted-foreground">出生地区</span>
+                  <span className="text-sm text-muted-foreground">出生地區</span>
                   <span className="text-xs text-muted-foreground ml-1.5">*</span>
                 </label>
                 <RegionSelect
                   value={birthLocation}
                   onChange={setBirthLocation}
-                  placeholder="选择省/市或地区"
+                  placeholder="選擇省/市或地區"
                 />
                 <p className="text-xs text-muted-foreground">
-                  用于真太阳时校准，提高排盘精度
+                  用於真太陽時校準，提高排盤精度
                 </p>
               </div>
             </>
           )}
         </div>
 
-        {/* 底部操作区 */}
+        {/* 底部操作區 */}
         <div className="pt-2 space-y-4">
           <Button 
             onClick={handleNext} 
@@ -409,7 +409,7 @@ export function InputPage() {
             下一步
           </Button>
           <p className="text-xs text-center text-muted-foreground">
-            你的信息将被安全加密存储
+            你的信息將被安全加密存儲
           </p>
         </div>
       </div>

@@ -16,6 +16,7 @@ import {
   Bar,
 } from 'recharts'
 import { getDeepReportCached } from '@/lib/api-cache'
+import { useLanguage } from '@/lib/context-language'
 import type { CareerPathContent } from '@/lib/types/career-path-report'
 
 const CHART_STROKE = '#8B6F47'
@@ -25,6 +26,7 @@ const CHART_GRID = '#D4A574'
 function CareerPathContentInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { t } = useLanguage()
   const archiveId = searchParams.get('archiveId')
   const [content, setContent] = useState<CareerPathContent | null>(null)
   const [loading, setLoading] = useState(!!archiveId)
@@ -40,10 +42,10 @@ function CareerPathContentInner() {
       .then((report) => {
         if (cancelled) return
         if (report?.content) setContent(report.content as unknown as CareerPathContent)
-        else setError('报告不存在')
+        else setError(t('報告不存在'))
       })
       .catch(() => {
-        if (!cancelled) setError('加载失败')
+        if (!cancelled) setError(t('載入失敗'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -64,11 +66,11 @@ function CareerPathContentInner() {
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-lg font-medium tracking-wide">仕途探索 · 深度报告</h1>
+            <h1 className="text-lg font-medium tracking-wide">{t('仕途探索 · 深度報告')}</h1>
           </div>
         </header>
         <div className="flex-1 flex items-center justify-center px-5 py-6">
-          <p className="text-sm text-muted-foreground text-center">请从深度解读页选择档案并点击「解读」生成报告</p>
+          <p className="text-sm text-muted-foreground text-center">{t('請從深度解讀頁選擇檔案並點擊「解讀」生成報告')}</p>
         </div>
       </main>
     )
@@ -85,11 +87,11 @@ function CareerPathContentInner() {
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-lg font-medium tracking-wide">仕途探索 · 深度报告</h1>
+            <h1 className="text-lg font-medium tracking-wide">{t('仕途探索 · 深度報告')}</h1>
           </div>
         </header>
         <div className="flex-1 flex items-center justify-center px-5 py-6">
-          <p className="text-sm text-muted-foreground">加载报告中…</p>
+          <p className="text-sm text-muted-foreground">{t('載入報告中…')}</p>
         </div>
       </main>
     )
@@ -106,15 +108,15 @@ function CareerPathContentInner() {
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-lg font-medium tracking-wide">仕途探索 · 深度报告</h1>
+            <h1 className="text-lg font-medium tracking-wide">{t('仕途探索 · 深度報告')}</h1>
           </div>
         </header>
         <div className="flex-1 flex flex-col items-center justify-center px-5 py-6 gap-4">
           <p className="text-sm text-muted-foreground text-center">
-            {error ?? '报告不存在或生成失败'}
+            {error ?? t('報告不存在或生成失敗')}
           </p>
           <p className="text-xs text-muted-foreground text-center">
-            请返回深度解读页，点击「重新生成」免费重试
+            {t('請返回深度解讀頁，點擊「重新生成」免費重試')}
           </p>
         </div>
       </main>
@@ -139,7 +141,7 @@ function CareerPathContentInner() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-medium tracking-wide">仕途探索 · 深度报告</h1>
+          <h1 className="text-lg font-medium tracking-wide">仕途探索 · 深度報告</h1>
         </div>
       </header>
 
@@ -147,7 +149,7 @@ function CareerPathContentInner() {
         {/* 1. 长期战略：赛道与模式定位 */}
         <section className="space-y-6">
           <h2 className="text-center text-xs tracking-widest text-muted-foreground uppercase">
-            长 期 战 略：赛 道 与 模 式 定 位
+            長 期 戰 略：賽 道 與 模 式 定 位
           </h2>
           {长期战略.副标题 && (
             <p className="text-center text-[11px] text-muted-foreground">
@@ -162,7 +164,7 @@ function CareerPathContentInner() {
               </p>
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground tracking-wider">行业领域</p>
+                  <p className="text-xs text-muted-foreground tracking-wider">行業領域</p>
                   <p className="text-sm text-foreground/85 leading-[1.75] pl-3 border-l-2 border-primary">
                     {长期战略.最强赛道A.行业领域}
                   </p>
@@ -174,7 +176,7 @@ function CareerPathContentInner() {
                   </p>
                 </div>
                 <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground tracking-wider">发展路径</p>
+                  <p className="text-xs text-muted-foreground tracking-wider">發展路徑</p>
                   <p className="text-sm text-foreground/85 leading-[1.75] pl-3 border-l border-border">
                     {长期战略.最强赛道A.发展路径}
                   </p>
@@ -196,13 +198,13 @@ function CareerPathContentInner() {
               </p>
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground tracking-wider">行业领域</p>
+                  <p className="text-xs text-muted-foreground tracking-wider">行業領域</p>
                   <p className="text-sm text-foreground/85 leading-[1.75] pl-3 border-l border-border">
                     {长期战略.次选赛道B.行业领域}
                   </p>
                 </div>
                 <div className="space-y-1.5">
-                  <p className="text-xs text-muted-foreground tracking-wider">简评</p>
+                  <p className="text-xs text-muted-foreground tracking-wider">簡評</p>
                   <p className="text-sm text-foreground/85 leading-[1.75] pl-3 border-l border-border">
                     {长期战略.次选赛道B.简评}
                   </p>
@@ -214,12 +216,12 @@ function CareerPathContentInner() {
           <Card className="border-border bg-background shadow-none">
             <CardContent className="p-5 space-y-5">
               <p className="text-sm font-medium text-foreground tracking-wide">
-                模式选择：打工 VS 创业
+                模式選擇：打工 VS 創業
               </p>
               <div className="space-y-3">
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>打工 {长期战略.模式选择.打工胜率}%</span>
-                  <span>创业 {长期战略.模式选择.创业胜率}%</span>
+                  <span>創業 {长期战略.模式选择.创业胜率}%</span>
                 </div>
                 <div className="h-7 rounded-full overflow-hidden flex bg-muted">
                   <div
@@ -253,11 +255,11 @@ function CareerPathContentInner() {
         {/* 2. 人生大运事业能量曲线 */}
         <section className="space-y-4">
           <h2 className="text-center text-xs tracking-widest text-muted-foreground uppercase">
-            人 生 大 运 事 业 能 量 曲 线
+            人 生 大 運 事 業 能 量 曲 線
           </h2>
           <div className="space-y-6">
-            {大运列表.map((运) => (
-              <div key={运.区间} className="space-y-3">
+            {大运列表.map((运, index) => (
+              <div key={`${运.区间}-${运.岁数}-${index}`} className="space-y-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="text-sm font-medium text-foreground tracking-wide">
                     {运.区间}（{运.岁数}）：{运.干支} 运
@@ -265,7 +267,7 @@ function CareerPathContentInner() {
                   <span className="text-xs text-muted-foreground">{运.宫位}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <p className="text-xs text-muted-foreground">事业总评分</p>
+                  <p className="text-xs text-muted-foreground">事業總評分</p>
                   <p className="text-base font-medium text-primary">{运.事业总评分} / 100</p>
                 </div>
                 <Card className="border-border bg-white/60 shadow-none">
@@ -299,14 +301,14 @@ function CareerPathContentInner() {
                         />
                       </AreaChart>
                     </ResponsiveContainer>
-                    <p className="text-[10px] text-center text-muted-foreground mt-1">趋势波动指数</p>
+                    <p className="text-[10px] text-center text-muted-foreground mt-1">趨勢波動指數</p>
                   </CardContent>
                 </Card>
                 <p className="text-xs text-muted-foreground">核心策略</p>
                 <p className="text-sm text-foreground/80 leading-[1.7] pl-3 border-l border-primary font-medium">
                   {运.核心策略}
                 </p>
-                <p className="text-xs text-muted-foreground">关键解读</p>
+                <p className="text-xs text-muted-foreground">關鍵解讀</p>
                 <p className="text-sm text-foreground/80 leading-[1.7] pl-3 border-l border-border">
                   {运.关键解读}
                 </p>
@@ -320,7 +322,7 @@ function CareerPathContentInner() {
         {/* 3. 年度事业重心与行动指南 */}
         <section className="space-y-4">
           <h2 className="text-center text-xs tracking-widest text-muted-foreground uppercase">
-            2026 年 度 事 业 重 心 与 行 动 指 南
+            2026 年 度 事 業 重 心 與 行 動 指 南
           </h2>
           {年度事业重心.副标题 && (
             <p className="text-center text-[11px] text-muted-foreground">
@@ -328,15 +330,15 @@ function CareerPathContentInner() {
             </p>
           )}
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground tracking-wider">年度关键词</p>
+            <p className="text-xs text-muted-foreground tracking-wider">年度關鍵詞</p>
             <p className="text-sm font-medium text-foreground pl-3 border-l-2 border-primary">
               {年度事业重心.年度关键词}
             </p>
-            <p className="text-xs text-muted-foreground tracking-wider">核心战略</p>
+            <p className="text-xs text-muted-foreground tracking-wider">核心戰略</p>
             <p className="text-sm text-foreground/80 leading-[1.7] pl-3 border-l border-border">
               {年度事业重心.核心战略}
             </p>
-            <p className="text-xs text-muted-foreground tracking-wider">行动指南</p>
+            <p className="text-xs text-muted-foreground tracking-wider">行動指南</p>
             <ul className="space-y-2 text-sm text-foreground/80 leading-[1.7] pl-3 border-l border-border">
               {(年度事业重心.行动指南 || []).map((item, i) => (
                 <li key={i}>· {item}</li>
@@ -350,9 +352,9 @@ function CareerPathContentInner() {
         {/* 4. 流月走势与关键节点 */}
         <section className="space-y-4">
           <h2 className="text-center text-xs tracking-widest text-muted-foreground uppercase">
-            2026 流 月 走 势 与 关 键 节 点
+            2026 流 月 走 勢 與 關 鍵 節 點
           </h2>
-          <p className="text-xs text-muted-foreground tracking-wider">事业能量流</p>
+          <p className="text-xs text-muted-foreground tracking-wider">事業能量流</p>
           <Card className="border-border bg-white/60 shadow-none">
             <CardContent className="p-2 pb-2">
               <ResponsiveContainer width="100%" height={160}>
@@ -382,13 +384,13 @@ function CareerPathContentInner() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-          <p className="text-xs text-muted-foreground tracking-wider">挑战关键流月（防守期）</p>
+          <p className="text-xs text-muted-foreground tracking-wider">挑戰關鍵流月（防守期）</p>
           <ul className="space-y-2 text-sm text-foreground/80 leading-[1.7] pl-3 border-l border-destructive/50">
             {(流月走势.挑战关键流月 || []).map((item, i) => (
               <li key={i}>· {item}</li>
             ))}
           </ul>
-          <p className="text-xs text-muted-foreground tracking-wider">高能关键流月（进攻期）</p>
+          <p className="text-xs text-muted-foreground tracking-wider">高能關鍵流月（進攻期）</p>
           <ul className="space-y-2 text-sm text-foreground/80 leading-[1.7] pl-3 border-l border-primary">
             {(流月走势.高能关键流月 || []).map((item, i) => (
               <li key={i}>· {item}</li>
@@ -401,15 +403,15 @@ function CareerPathContentInner() {
         {/* 5. 动荡预警与回避方案 */}
         <section className="space-y-4">
           <h2 className="text-center text-xs tracking-widest text-muted-foreground uppercase">
-            动 荡 预 警 与 回 避 方 案
+            動 盪 預 警 與 回 避 方 案
           </h2>
-          <p className="text-xs text-muted-foreground tracking-wider">可能出现的动荡事件</p>
+          <p className="text-xs text-muted-foreground tracking-wider">可能出現的動盪事件</p>
           <ul className="space-y-2 text-sm text-foreground/80 leading-[1.7] pl-3 border-l border-border">
             {(动荡预警.可能出现的动荡事件 || []).map((item, i) => (
               <li key={i}>· {item}</li>
             ))}
           </ul>
-          <p className="text-xs text-muted-foreground tracking-wider">回避与止损方案</p>
+          <p className="text-xs text-muted-foreground tracking-wider">回避與止損方案</p>
           <p className="text-sm text-foreground/80 leading-[1.7] pl-3 border-l border-primary">
             {动荡预警.回避与止损方案}
           </p>
@@ -420,13 +422,13 @@ function CareerPathContentInner() {
         {/* 6. 助力分析与化解建议 */}
         <section className="space-y-4">
           <h2 className="text-center text-xs tracking-widest text-muted-foreground uppercase">
-            助 力 分 析 与 化 解 建 议
+            助 力 分 析 與 化 解 建 議
           </h2>
-          <p className="text-xs text-muted-foreground tracking-wider">核心助力来源</p>
+          <p className="text-xs text-muted-foreground tracking-wider">核心助力來源</p>
           <p className="text-sm text-foreground/80 leading-[1.7] pl-3 border-l border-border">
             {助力分析.核心助力来源}
           </p>
-          <p className="text-xs text-muted-foreground tracking-wider">增运建议</p>
+          <p className="text-xs text-muted-foreground tracking-wider">增運建議</p>
           <ul className="space-y-2 text-sm text-foreground/80 leading-[1.7] pl-3 border-l border-border">
             {(助力分析.增运建议 || []).map((item, i) => (
               <li key={i}>· {item}</li>
@@ -439,13 +441,13 @@ function CareerPathContentInner() {
         {/* 7. 事业年度总结 */}
         <section className="space-y-4">
           <h2 className="text-center text-xs tracking-widest text-muted-foreground uppercase">
-            事 业 年 度 总 结
+            事 業 年 度 總 結
           </h2>
           <p className="text-sm text-foreground/80 leading-[1.8] pl-3 border-l-2 border-primary">
             {事业年度总结.正文}
           </p>
           <div className="flex items-baseline gap-2">
-            <p className="text-xs text-muted-foreground">评分</p>
+            <p className="text-xs text-muted-foreground">評分</p>
             <p className="text-lg font-medium text-primary">{事业年度总结.评分} / 100</p>
           </div>
         </section>
@@ -454,22 +456,25 @@ function CareerPathContentInner() {
   )
 }
 
+function CareerPathPageLoading() {
+  const { t } = useLanguage()
+  return (
+    <main className="min-h-screen bg-background text-foreground max-w-md mx-auto flex flex-col">
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="flex items-center gap-3 px-5 py-4">
+          <h1 className="text-lg font-medium tracking-wide">{t('仕途探索 · 深度報告')}</h1>
+        </div>
+      </header>
+      <div className="flex-1 flex items-center justify-center px-5 py-6">
+        <p className="text-sm text-muted-foreground">{t('載入中…')}</p>
+      </div>
+    </main>
+  )
+}
+
 export default function CareerPathPage() {
   return (
-    <Suspense
-      fallback={
-        <main className="min-h-screen bg-background text-foreground max-w-md mx-auto flex flex-col">
-          <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
-            <div className="flex items-center gap-3 px-5 py-4">
-              <h1 className="text-lg font-medium tracking-wide">仕途探索 · 深度报告</h1>
-            </div>
-          </header>
-          <div className="flex-1 flex items-center justify-center px-5 py-6">
-            <p className="text-sm text-muted-foreground">加载中…</p>
-          </div>
-        </main>
-      }
-    >
+    <Suspense fallback={<CareerPathPageLoading />}>
       <CareerPathContentInner />
     </Suspense>
   )

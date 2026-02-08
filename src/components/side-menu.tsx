@@ -88,7 +88,7 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
       >
         {/* Header - Fixed Position */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-background shrink-0">
-          <span className="text-sm font-medium">档案</span>
+          <span className="text-sm font-medium">檔案</span>
           <button
             onClick={onClose}
             className="text-foreground hover:opacity-70 transition-opacity"
@@ -104,20 +104,20 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
             className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-lg transition-colors"
           >
             <span>⊕</span>
-            <span>创建新档案</span>
+            <span>創建新檔案</span>
           </button>
         </div>
 
-        {/* Archives List - Scrollable, Fixed Height (约4个档案的高度: 每个档案约3.5rem，4个约14rem) */}
+        {/* Archives List - Scrollable, Fixed Height (約4個檔案的高度: 每個檔案約3.5rem，4個約14rem) */}
         <div className="px-5 overflow-y-auto shrink-0" style={{ height: '14rem', maxHeight: '14rem' }}>
           {archiveListLoading ? (
             <div className="px-3 py-4 text-center">
               <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground">加载档案列表中…</p>
+              <p className="text-xs text-muted-foreground">加載檔案列表中…</p>
             </div>
           ) : archiveList.length === 0 ? (
             <div className="px-3 py-2 text-xs text-muted-foreground rounded border border-dashed border-border/60">
-              暂无档案，创建新档案后将在此展示
+              暫無檔案，創建新檔案後將在此展示
             </div>
           ) : (
             <div className="space-y-2">
@@ -136,7 +136,7 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
                   >
                     <FileText className="w-4 h-4 shrink-0" />
                     <span className="truncate">{archive.name || archive.id}</span>
-                    {isCurrent && <span className="text-[10px] text-primary shrink-0">当前</span>}
+                    {isCurrent && <span className="text-[10px] text-primary shrink-0">當前</span>}
                   </button>
                 )
               })}
@@ -151,9 +151,9 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
         <div className="px-5 py-3 space-y-2 text-sm shrink-0">
           <button
             onClick={async () => {
-              // 优化第6点：无档案时深度解读入口 - 检查是否有档案
+              // 優化第6點：無檔案時深度解讀入口 - 檢查是否有檔案
               if (archiveList.length === 0 && !archiveListLoading) {
-                toast.error('请先创建档案进行解码开启')
+                toast.error('請先創建檔案進行解碼開啟')
                 onClose()
                 return
               }
@@ -163,7 +163,7 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
             }}
             className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
           >
-            深度解读
+            深度解讀
           </button>
           <button
             onClick={() => {
@@ -172,7 +172,7 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
             }}
             className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
           >
-            活动中心
+            活動中心
           </button>
           <button
             onClick={() => {
@@ -187,7 +187,7 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
             type="button"
             className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
           >
-            联系客服
+            聯繫客服
           </button>
         </div>
 
@@ -218,7 +218,7 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
                 onClick={() => setShowHistory(true)}
                 className="flex-1 px-3 py-2 border border-border text-foreground rounded-lg text-xs font-medium hover:bg-muted/50 transition-colors"
               >
-                记录
+                記錄
               </button>
             </div>
 
@@ -227,7 +227,7 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
               className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors border border-transparent hover:border-border"
             >
               <LogOut className="w-3.5 h-3.5" />
-              退出登录
+              退出登錄
             </button>
           </div>
         )}

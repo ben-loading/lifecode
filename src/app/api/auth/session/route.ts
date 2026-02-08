@@ -69,7 +69,7 @@ export async function GET(request: Request) {
         await createTransaction(appUser.id, {
           type: 'topup',
           amount: NEW_USER_BALANCE,
-          description: '初始体验能量',
+          description: '初始體驗能量',
         })
         appUser = { ...appUser, isNewUser: true }
       } catch (createErr) {

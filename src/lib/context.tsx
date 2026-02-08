@@ -77,7 +77,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addTransaction = (tx: Transaction) => setTransactionsState((prev) => [tx, ...prev])
   const addEarnRecord = (record: EarnRecord) => {
     setEarnRecords((prev) => [record, ...prev])
-    setBalanceState((b) => b + record.amount)
+    // 注意：不再自动增加余额，余额应该由服务器端返回的值控制
+    // 避免重复增加余额（如兑换码兑换时，服务器已更新余额）
+    // setBalanceState((b) => b + record.amount)
   }
 
   useEffect(() => {

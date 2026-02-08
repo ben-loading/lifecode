@@ -15,12 +15,12 @@ export function AnalyzingPage() {
   const router = useRouter()
   const { user } = useAppContext()
   const [steps, setSteps] = useState<AnalysisStep[]>([
-    { id: '1', label: '编码解析｜完成', completed: true },
-    { id: '2', label: '采用梦境·数术诊断', completed: false },
-    { id: '3', label: '先天命盘解析｜待执行', completed: false },
-    { id: '4', label: '全域能量解析｜待执行', completed: false },
-    { id: '5', label: '大限定势分析｜待执行', completed: false },
-    { id: '6', label: '流年波动解析｜待执行', completed: false },
+    { id: '1', label: '編碼解析｜完成', completed: true },
+    { id: '2', label: '採用夢境·數術診斷', completed: false },
+    { id: '3', label: '先天命盤解析｜待執行', completed: false },
+    { id: '4', label: '全域能量解析｜待執行', completed: false },
+    { id: '5', label: '大限定勢分析｜待執行', completed: false },
+    { id: '6', label: '流年波動解析｜待執行', completed: false },
   ])
   const [currentStep, setCurrentStep] = useState(1)
 
@@ -62,7 +62,7 @@ export function AnalyzingPage() {
         <div className="flex items-center gap-3">
           <div className="text-left">
             <p className="text-xs text-muted-foreground tracking-wider">人生</p>
-            <p className="text-xl font-medium tracking-wider">解码</p>
+            <p className="text-xl font-medium tracking-wider">解碼</p>
           </div>
         </div>
       </header>
@@ -71,19 +71,19 @@ export function AnalyzingPage() {
       <div className="px-6 py-8 space-y-8">
         {/* User Info */}
         <div className="text-center space-y-1">
-          <h2 className="text-2xl font-medium tracking-wider">{user.name || '用户'}</h2>
+          <h2 className="text-2xl font-medium tracking-wider">{user.name || '用戶'}</h2>
           <p className="text-xs text-muted-foreground">
-            正在为编码中...
+            正在為編碼中...
           </p>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            正在深入解读内在密码，预测流年变化，提供专业建议
+            正在深入解讀內在密碼，預測流年變化，提供專業建議
           </p>
         </div>
 
         {/* Progress Bar */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground tracking-wider">分析进度</p>
+            <p className="text-xs text-muted-foreground tracking-wider">分析進度</p>
             <p className="text-sm font-medium text-foreground">
               {completedCount}/{steps.length}
             </p>
@@ -137,8 +137,8 @@ export function AnalyzingPage() {
         <div className="text-center">
           <p className="text-xs text-muted-foreground">
             {currentStep === 6
-              ? '分析完成，即将为你呈现结果...'
-              : '正在深度分析中，请耐心等待'}
+              ? '分析完成，即將為你呈現結果...'
+              : '正在深度分析中，請耐心等待'}
           </p>
         </div>
       </div>

@@ -9,22 +9,25 @@ import { PaymentDialog } from '@/components/payment-dialog'
 import { ReservationDialog } from '@/components/reservation-dialog'
 import { TopUpDialog } from '@/components/topup-dialog'
 import { useAppContext } from '@/lib/context'
+import { useLanguage } from '@/lib/context-language'
 import { createDeepReportJob, getSession } from '@/lib/api-client'
 import { getDeepReportArchiveStatusCached, invalidateDeepReport, listArchivesCached } from '@/lib/api-cache'
 import { toast } from 'sonner'
 import { DEEP_REPORT_COST } from '@/lib/costs'
 import { InsufficientBalanceDialog } from '@/components/insufficient-balance-dialog'
 import { ConfirmEnergyDeductionDialog } from '@/components/confirm-energy-deduction-dialog'
+import { useDebounceCallback } from '@/lib/utils'
 import type { ApiArchive } from '@/lib/types/api'
 
-type TabType = '深度报告' | '真人1V1' | 'AI解答'
+type TabType = '深度報告' | '真人1V1' | 'AI解答'
 type DeepItemStatus = 'none' | 'generating' | 'completed' | 'failed'
 
-const deepReports = [
-  { id: 1, slug: 'future-fortune', title: '未来运势', description: '验证前年，深度分析未来5年明年的整体运势及趋势。', energy: 200 },
-  { id: 2, slug: 'career-path', title: '仕途探索', description: '全方位剖析事业发展，深度探索职业生涯，打工？创业？延展创业当老板？', energy: 200 },
-  { id: 3, slug: 'wealth-road', title: '财富之路', description: '深度剖析个人财富格局和能力，正财、偏财、投资如何配置？', energy: 200 },
-  { id: 4, slug: 'love-marriage', title: '爱情姻缘', description: '撮合个人的爱情场景，提升个人的感情处理方式，感知另一半。', energy: 200 },
+// 注意：deepReports 数组中的文字会在组件内使用 t() 函数翻译
+const getDeepReports = (t: (text: string) => string) => [
+  { id: 1, slug: 'future-fortune', title: t('未來運勢'), description: t('驗證前年，深度分析未來5年明年的整體運勢及趨勢。'), energy: 200 },
+  { id: 2, slug: 'career-path', title: t('仕途探索'), description: t('全方位剖析事業發展，深度探索職業生涯，打工？創業？延展創業當老闆？'), energy: 200 },
+  { id: 3, slug: 'wealth-road', title: t('財富之路'), description: t('深度剖析個人財富格局和能力，正財、偏財、投資如何配置？'), energy: 200 },
+  { id: 4, slug: 'love-marriage', title: t('愛情姻緣'), description: t('撮合個人的愛情場景，提升個人的感情處理方式，感知另一半。'), energy: 200 },
 ]
 
 export function DeepReadingPage({
@@ -38,9 +41,10 @@ export function DeepReadingPage({
 }) {
   const router = useRouter()
   const { user, balance, setBalance, setUser } = useAppContext()
+  const { t } = useLanguage()
   // 优先使用传入的 archiveId（来自 URL），避免刷新时丢失档案状态；无传入时用 context 的 currentArchiveId
   const currentArchiveId = archiveId ?? user.currentArchiveId
-  const [activeTab, setActiveTab] = useState<TabType>('深度报告')
+  const [activeTab, setActiveTab] = useState<TabType>('深度報告')
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [showReservationDialog, setShowReservationDialog] = useState(false)
   const [hasReservation, setHasReservation] = useState(false)
@@ -129,30 +133,98 @@ export function DeepReadingPage({
   const getButtonState = (reportSlug: string) => {
     const item = statusMap[reportSlug]
     // 当前报告本身正在生成中，禁用按钮
-    if (unlockLoading === reportSlug) return { label: '解读中…', disabled: true }
-    if (item?.status === 'generating') return { label: '解读中…', disabled: true }
+    if (unlockLoading === reportSlug) return { label: t('解讀中…'), disabled: true }
+    if (item?.status === 'generating') return { label: t('解讀中…'), disabled: true }
     // 其他状态：按钮保持可点击（即使有其他报告正在生成，也让用户点击后显示提示）
     // 这样用户点击时能看到提示，而不是按钮被禁用无法点击
-    if (item?.status === 'completed') return { label: '查看报告', disabled: false }
-    if (item?.status === 'failed') return { label: '重新生成', disabled: false }
+    if (item?.status === 'completed') return { label: t('查看報告'), disabled: false }
+    if (item?.status === 'failed') return { label: t('重新生成'), disabled: false }
     // 默认状态：按钮可点击，点击时 handleDeepReportAction 会检查是否有其他报告正在生成并显示提示
-    return { label: '解读', disabled: false }
+    return { label: t('解讀'), disabled: false }
   }
 
   // 检查是否有其他报告正在生成中
   const getGeneratingReport = useCallback((): { slug: string; title: string } | null => {
+    const reports = getDeepReports(t)
     for (const [slug, item] of Object.entries(statusMap)) {
       if (item?.status === 'generating' || unlockLoading === slug) {
-        const report = deepReports.find((r) => r.slug === slug)
+        const report = reports.find((r) => r.slug === slug)
         if (report) {
           return { slug, title: report.title }
         }
       }
     }
     return null
-  }, [statusMap, unlockLoading])
+  }, [statusMap, unlockLoading, t])
 
-  const handleDeepReportAction = async (reportSlug: string) => {
+  // 开始生成报告（用户确认后调用），使用 useCallback 确保依赖正确
+  const startGeneratingReport = useCallback(async (reportSlug: string, isRetry: boolean) => {
+    setUnlockLoading(reportSlug)
+    // 点击解读时立即标记为 generating，避免在 fetchStatus 完成前按钮变回「解锁」
+    setStatusMap((prev) => ({
+      ...prev,
+      [reportSlug]: { status: 'generating' },
+    }))
+    try {
+      const res = await createDeepReportJob(currentArchiveId!, reportSlug, isRetry)
+      const session = await getSession().catch(() => null)
+      if (session?.user) setBalance(session.user.balance)
+      // 如果返回明确状态，立即更新（completed/failed），避免被 fetchStatus 的延迟数据覆盖
+      if (res.status === 'completed') {
+        setStatusMap((prev) => ({
+          ...prev,
+          [reportSlug]: { status: 'completed' },
+        }))
+        invalidateDeepReport(currentArchiveId!, reportSlug)
+        toast.success(t('解讀完成，可點擊「查看報告」'))
+        // 完成后清空 unlockLoading，并刷新状态
+        setUnlockLoading(null)
+        await fetchStatus()
+      } else if (res.status === 'failed') {
+        setStatusMap((prev) => ({
+          ...prev,
+          [reportSlug]: { status: 'failed' },
+        }))
+        toast.error(t('解讀失敗，可點擊「重新生成」免費重試'))
+        // 失败后清空 unlockLoading，并刷新状态
+        setUnlockLoading(null)
+        await fetchStatus()
+      } else {
+        // 如果返回的是 generating（理论上不会），或者需要等待后端确认
+        // 先刷新状态，确保后端已创建任务，然后再清空 unlockLoading
+        await fetchStatus()
+        // 延迟清空 unlockLoading，确保状态已更新
+        setTimeout(() => {
+          setUnlockLoading(null)
+        }, 300)
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg.includes('402') || msg.includes('不足') || msg.includes('INSUFFICIENT')) {
+        const session = await getSession().catch(() => null)
+        if (session?.user) setBalance(session.user.balance)
+        setShowInsufficient(true)
+        // 能量不足时恢复状态，允许重试
+        setStatusMap((prev) => {
+          const next = { ...prev }
+          delete next[reportSlug]
+          return next
+        })
+        setUnlockLoading(null)
+      } else {
+        toast.error(msg || t('解讀失敗，請稍後再試'))
+        // 其他错误保持 generating，等待 fetchStatus 确认最终状态
+        // 先刷新状态，然后再清空 unlockLoading
+        await fetchStatus()
+        setTimeout(() => {
+          setUnlockLoading(null)
+        }, 300)
+      }
+    }
+  }, [currentArchiveId, fetchStatus, setBalance, setUnlockLoading, setStatusMap, setShowInsufficient])
+
+  // 内部处理函数（不防抖），使用 useCallback 确保依赖正确
+  const handleDeepReportActionInternal = useCallback(async (reportSlug: string) => {
     const item = statusMap[reportSlug]
     // 已完成：直接打开报告页，不触发扣费/充值弹窗
     if (item?.status === 'completed') {
@@ -167,10 +239,11 @@ export function DeepReadingPage({
     
     // 检查是否有其他报告正在生成中（优先检查，确保提示能显示）
     // 直接在函数内检查，不依赖 useCallback
+    const reports = getDeepReports(t)
     let generatingReport: { slug: string; title: string } | null = null
     for (const [slug, statusItem] of Object.entries(statusMap)) {
       if (slug !== reportSlug && (statusItem?.status === 'generating' || unlockLoading === slug)) {
-        const report = deepReports.find((r) => r.slug === slug)
+        const report = reports.find((r) => r.slug === slug)
         if (report) {
           generatingReport = { slug, title: report.title }
           break
@@ -180,7 +253,7 @@ export function DeepReadingPage({
     
     if (generatingReport) {
       // 使用 toast.error 显示提示
-      toast.error(`当前「${generatingReport.title}」正在解读中，请等待完成后再进行解读`, {
+      toast.error(t('當前「{{title}}」正在解讀中，請等待完成後再進行解讀').replace('{{title}}', generatingReport.title), {
         duration: 3000,
       })
       return
@@ -208,73 +281,22 @@ export function DeepReadingPage({
     // 余额足够，显示确认弹窗
     setPendingReportSlug(reportSlug)
     setShowConfirmDeduction(true)
-  }
+  }, [statusMap, unlockLoading, currentArchiveId, balance, router, startGeneratingReport, setShowInsufficient, setPendingReportSlug, setShowConfirmDeduction, t])
 
-  // 开始生成报告（用户确认后调用）
-  const startGeneratingReport = async (reportSlug: string, isRetry: boolean) => {
-    setUnlockLoading(reportSlug)
-    // 点击解读时立即标记为 generating，避免在 fetchStatus 完成前按钮变回「解锁」
-    setStatusMap((prev) => ({
-      ...prev,
-      [reportSlug]: { status: 'generating' },
-    }))
-    try {
-      const res = await createDeepReportJob(currentArchiveId!, reportSlug, isRetry)
-      const session = await getSession().catch(() => null)
-      if (session?.user) setBalance(session.user.balance)
-      // 如果返回明确状态，立即更新（completed/failed），避免被 fetchStatus 的延迟数据覆盖
-      if (res.status === 'completed') {
-        setStatusMap((prev) => ({
-          ...prev,
-          [reportSlug]: { status: 'completed' },
-        }))
-        invalidateDeepReport(currentArchiveId!, reportSlug)
-        toast.success('解读完成，可点击「查看报告」')
-        // 完成后清空 unlockLoading，并刷新状态
-        setUnlockLoading(null)
-        await fetchStatus()
-      } else if (res.status === 'failed') {
-        setStatusMap((prev) => ({
-          ...prev,
-          [reportSlug]: { status: 'failed' },
-        }))
-        toast.error('解读失败，可点击「重新生成」免费重试')
-        // 失败后清空 unlockLoading，并刷新状态
-        setUnlockLoading(null)
-        await fetchStatus()
-      } else {
-        // 如果返回的是 generating（理论上不会），或者需要等待后端确认
-        // 先刷新状态，确保后端已创建任务，然后再清空 unlockLoading
-        await fetchStatus()
-        // 延迟清空 unlockLoading，确保状态已更新
-        setTimeout(() => {
-          setUnlockLoading(null)
-        }, 300)
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (msg.includes('402') || msg.includes('不足') || msg.includes('INSUFFICIENT')) {
-        const session = await getSession().catch(() => null)
-        if (session?.user) setBalance(session.user.balance)
-        setShowInsufficient(true)
-        // 能量不足时恢复状态，允许重试
-        setStatusMap((prev) => {
-          const next = { ...prev }
-          delete next[reportSlug]
-          return next
-        })
-        setUnlockLoading(null)
-      } else {
-        toast.error(msg || '解读失败，请稍后再试')
-        // 其他错误保持 generating，等待 fetchStatus 确认最终状态
-        // 先刷新状态，然后再清空 unlockLoading
-        await fetchStatus()
-        setTimeout(() => {
-          setUnlockLoading(null)
-        }, 300)
-      }
+  // 防抖版本的处理函数（500ms 防抖，防止快速连续点击）
+  const debouncedHandleAction = useDebounceCallback(handleDeepReportActionInternal, 500)
+
+  // 对外暴露的处理函数：已完成状态立即执行，其他情况防抖
+  const handleDeepReportAction = useCallback(async (reportSlug: string) => {
+    const item = statusMap[reportSlug]
+    // 已完成状态：立即执行，不防抖（用户体验优先）
+    if (item?.status === 'completed') {
+      await handleDeepReportActionInternal(reportSlug)
+      return
     }
-  }
+    // 其他情况：应用防抖
+    debouncedHandleAction(reportSlug)
+  }, [statusMap, handleDeepReportActionInternal, debouncedHandleAction])
 
   // 确认扣除能量
   const handleConfirmDeduction = () => {
@@ -323,7 +345,7 @@ export function DeepReadingPage({
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-medium">深度解读</h1>
+          <h1 className="text-lg font-medium">{t('深度解讀')}</h1>
         </div>
 
         {/* 档案选择器（移动到 Tabs 上方，居中展示） */}
@@ -334,9 +356,9 @@ export function DeepReadingPage({
               className="w-full flex items-center justify-center relative py-2 group"
             >
               <div className="flex flex-col items-center min-w-0">
-                <span className="text-[10px] text-muted-foreground mb-1 tracking-wider">解读档案</span>
+                <span className="text-[10px] text-muted-foreground mb-1 tracking-wider">{t('解讀檔案')}</span>
                 <span className="text-base font-medium text-foreground">
-                  #{archiveName || '档案'}
+                  #{archiveName || t('檔案')}
                 </span>
               </div>
               <div className="absolute right-0 text-muted-foreground group-hover:text-foreground transition-colors shrink-0">
@@ -348,7 +370,7 @@ export function DeepReadingPage({
 
         {/* Tabs */}
         <div className="flex items-center justify-center gap-8 px-5 pb-3 border-b border-border">
-          {(['深度报告', '真人1V1', 'AI解答'] as TabType[]).map((tab) => {
+          {(['深度報告', '真人1V1', 'AI解答'] as TabType[]).map((tab) => {
             const isUnavailable = tab === '真人1V1' || tab === 'AI解答'
             return (
               <button
@@ -360,10 +382,10 @@ export function DeepReadingPage({
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {tab}
+                {t(tab)}
                 {isUnavailable && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-normal">
-                    未开放
+                    {t('未開放')}
                   </span>
                 )}
                 {activeTab === tab && (
@@ -383,7 +405,7 @@ export function DeepReadingPage({
             return (
               <div className="flex flex-col items-center justify-center py-16 gap-4">
                 <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                <p className="text-sm text-muted-foreground">加载中…</p>
+                <p className="text-sm text-muted-foreground">{t('載入中…')}</p>
               </div>
             )
           }
@@ -391,9 +413,9 @@ export function DeepReadingPage({
             <>
 
               {/* Tab Content */}
-              {activeTab === '深度报告' && (
+              {activeTab === '深度報告' && (
           <div className="space-y-3">
-            {deepReports.map((report) => (
+            {getDeepReports(t).map((report) => (
               <div
                 key={report.id}
                 className="border border-border rounded-lg p-4 hover:border-primary/50 transition-colors"
@@ -425,9 +447,9 @@ export function DeepReadingPage({
                             className={`text-xs max-w-[60%] text-left leading-tight ${showGeneratingHint ? 'text-foreground/70' : 'text-primary font-medium'}`}
                           >
                             {showGeneratingHint
-                              ? '全方位推演中，约一分钟，请静候'
+                              ? t('全方位推演中，約一分鐘，請靜候')
                               : showEnergy
-                                ? `${report.energy}能量`
+                                ? `${report.energy}${t('能量')}`
                                 : ''}
                           </span>
                           <button
@@ -454,10 +476,10 @@ export function DeepReadingPage({
           <div className="pt-12 pb-8 flex flex-col items-center justify-center">
             <span className="block w-8 h-px bg-border mb-8" aria-hidden />
             <p className="text-sm text-foreground/90 tracking-[0.2em] text-center">
-              该功能暂未开放
+              {t('該功能暫未開放')}
             </p>
             <p className="text-xs text-muted-foreground tracking-widest mt-3 text-center">
-              敬请期待
+              {t('敬請期待')}
             </p>
           </div>
         )}
@@ -466,10 +488,10 @@ export function DeepReadingPage({
           <div className="pt-12 pb-8 flex flex-col items-center justify-center">
             <span className="block w-8 h-px bg-border mb-8" aria-hidden />
             <p className="text-sm text-foreground/90 tracking-[0.2em] text-center">
-              该功能暂未开放
+              {t('該功能暫未開放')}
             </p>
             <p className="text-xs text-muted-foreground tracking-widest mt-3 text-center">
-              敬请期待
+              {t('敬請期待')}
             </p>
           </div>
         )}
@@ -502,7 +524,7 @@ export function DeepReadingPage({
           isOpen={showConfirmDeduction}
           onClose={handleCancelDeduction}
           onConfirm={handleConfirmDeduction}
-          reportTitle={deepReports.find((r) => r.slug === pendingReportSlug)?.title || '深度报告'}
+          reportTitle={getDeepReports(t).find((r) => r.slug === pendingReportSlug)?.title || t('深度報告')}
           required={DEEP_REPORT_COST}
           currentBalance={balance}
         />
@@ -527,17 +549,17 @@ export function DeepReadingPage({
       <Dialog open={showArchiveSelector} onOpenChange={setShowArchiveSelector}>
         <DialogContent className="max-w-md p-0">
           <div className="px-6 pt-6 pb-4 border-b border-border">
-            <DialogTitle className="text-base font-medium tracking-wide">选择档案</DialogTitle>
+            <DialogTitle className="text-base font-medium tracking-wide">{t('選擇檔案')}</DialogTitle>
           </div>
           <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
             {archiveListLoading ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3">
                 <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                <p className="text-xs text-muted-foreground tracking-wide">加载档案列表中…</p>
+                <p className="text-xs text-muted-foreground tracking-wide">{t('載入檔案列表中…')}</p>
               </div>
             ) : archiveList.length === 0 ? (
               <div className="py-12 text-center">
-                <p className="text-sm text-muted-foreground tracking-wide">暂无档案</p>
+                <p className="text-sm text-muted-foreground tracking-wide">{t('暫無檔案')}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -560,10 +582,10 @@ export function DeepReadingPage({
                       <FileText className={`w-4 h-4 shrink-0 ${
                         isCurrent ? 'text-primary' : 'text-muted-foreground'
                       }`} />
-                      <span className="flex-1 truncate text-sm font-medium">{archive.name || '未命名档案'}</span>
+                      <span className="flex-1 truncate text-sm font-medium">{archive.name || t('未命名檔案')}</span>
                       {isCurrent && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium shrink-0">
-                          当前
+                          {t('當前')}
                         </span>
                       )}
                     </button>

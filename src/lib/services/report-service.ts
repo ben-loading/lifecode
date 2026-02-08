@@ -11,10 +11,12 @@ import { MainReportSchema, extractJsonFromResponse, normalizeMainReportOutput, t
 import type { ApiMainReport } from '@/lib/types/api'
 import { getArchiveById, createMainReport, findArchiveByNormalizedBirth, getMainReportByArchiveId } from '@/lib/db'
 import { normalizeBirthInfo } from './birth-normalizer'
+import { convertReportToTraditional } from '@/lib/i18n'
 
 /**
  * 生成主报告（完整流程）
  * 严格使用该档案在 DB 中已保存的性别、八字、命盘等，不依赖前端或会话状态。
+ * LLM 輸出簡體中文，然後自動轉換為繁體中文。
  * @param archiveId - 档案 ID
  * @returns 验证后的主报告内容
  */
@@ -40,7 +42,7 @@ export async function generateMainReport(archiveId: string): Promise<ApiMainRepo
   if (existingArchive) {
     const existingReport = await getMainReportByArchiveId(existingArchive.id)
     if (existingReport) {
-      // 复制报告内容到新档案
+      // 复制报告内容到新档案（报告已经是繁体，无需转换）
       const newReport: ApiMainReport = {
         ...existingReport,
         id: `report_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
@@ -56,7 +58,7 @@ export async function generateMainReport(archiveId: string): Promise<ApiMainRepo
   // 用档案数据计算命盘（iztro）
   const iztroInput = await calculateAstrolabe(archive)
 
-  // 3. 构建 Prompt
+  // 3. 构建 Prompt（LLM 輸出簡體中文）
   const { systemPrompt, userMessage, config } = await buildMainReportPrompt(iztroInput)
 
   // 4. 调用 LLM（厂商由 .env.local 的 LLM_PROVIDER 决定）
@@ -74,24 +76,36 @@ export async function generateMainReport(archiveId: string): Promise<ApiMainRepo
     const jsonStr = extractJsonFromResponse(llmResponse)
     parsedContent = JSON.parse(jsonStr)
   } catch (error) {
-    throw new Error(`Failed to parse LLM response as JSON: ${error}`)
+    // 提供更详细的错误信息，包括 JSON 字符串的片段
+    const jsonStr = extractJsonFromResponse(llmResponse)
+    const errorPos = error instanceof SyntaxError && 'position' in error ? Number(error.position) : null
+    const snippet = errorPos 
+      ? jsonStr.slice(Math.max(0, errorPos - 100), Math.min(jsonStr.length, errorPos + 100))
+      : jsonStr.slice(0, 200)
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    throw new Error(`Failed to parse LLM response as JSON: ${errorMsg}\nJSON snippet around error: ${JSON.stringify(snippet)}`)
   }
+  
+  // 6. 标准化输出
   const normalizedContent = normalizeMainReportOutput(parsedContent)
 
-  // 6. 使用 Zod 验证
+  // 7. 使用 Zod 验证
   const validatedContent = MainReportSchema.parse(normalizedContent) as ValidatedMainReport
 
-  // 7. 构造完整报告对象（带 ID 和时间戳）
+  // 8. 将简体中文转换为繁体中文（递归转换所有字符串字段）
+  const traditionalContent = convertReportToTraditional(validatedContent) as ValidatedMainReport
+
+  // 9. 构造完整报告对象（带 ID 和时间戳）
   // 使用类型断言，因为 Zod 已验证数组长度符合要求
   const reportId = `report_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
   const report = {
     id: reportId,
     archiveId,
     createdAt: new Date().toISOString(),
-    ...validatedContent
+    ...traditionalContent
   } as ApiMainReport
 
-  // 8. 存储到 Supabase
+  // 10. 存储到 Supabase
   await createMainReport(report)
 
   return report

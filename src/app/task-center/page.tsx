@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { redeemCode as apiRedeemCode, getTransactions } from '@/lib/api-client'
+import { useLanguage } from '@/lib/context-language'
 
 const DISCORD_INVITE_URL = 'https://discord.gg/your-server' // 可后续改为真实 Discord 邀请链接
 
 export default function TaskCenterPage() {
   const router = useRouter()
   const { balance, setBalance, setTransactions, earnRecords, addEarnRecord } = useAppContext()
+  const { t } = useLanguage()
   const [redeemCode, setRedeemCode] = useState('')
   const [redeemStatus, setRedeemStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
 
@@ -30,7 +32,7 @@ export default function TaskCenterPage() {
       addEarnRecord({
         id: `earn_${Date.now()}`,
         amount: res.amount,
-        reason: `兑换码（${code.slice(0, 6)}***）`,
+        reason: `${t('兌換碼')}（${code.slice(0, 6)}***）`,
         createdAt: new Date().toISOString(),
       })
       setRedeemCode('')
@@ -52,14 +54,14 @@ export default function TaskCenterPage() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-medium tracking-wide">活动中心</h1>
+          <h1 className="text-lg font-medium tracking-wide">{t('活動中心')}</h1>
         </div>
       </header>
 
       <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
         {/* 当前积分 */}
         <div className="flex items-baseline justify-between rounded-lg border border-border bg-muted/20 px-4 py-3">
-          <span className="text-sm text-muted-foreground">当前能量</span>
+          <span className="text-sm text-muted-foreground">{t('當前能量')}</span>
           <span className="text-xl font-medium text-foreground">{balance}</span>
         </div>
 
@@ -67,27 +69,27 @@ export default function TaskCenterPage() {
 
         {/* 任务二：Discord 活动 + 兑换码 */}
         <section className="space-y-3">
-          <h2 className="text-sm font-medium text-foreground tracking-wide">参与 Discord 活动</h2>
+          <h2 className="text-sm font-medium text-foreground tracking-wide">{t('參與 Discord 活動')}</h2>
           <Card className="border-border shadow-none">
             <CardContent className="p-4 space-y-4">
               <p className="text-xs text-muted-foreground leading-relaxed">
-                加入 Discord 社群参与活动，获取积分兑换码后在此处兑换。
+                {t('加入 Discord 社群參與活動，獲取積分兌換碼後在此處兌換。')}
               </p>
               <Button
                 onClick={() => window.open(DISCORD_INVITE_URL, '_blank')}
                 className="w-full gap-2"
               >
                 <ExternalLink className="w-4 h-4" />
-                加入 Discord
+                {t('加入 Discord')}
               </Button>
               <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">兑换码</label>
+                <label className="text-xs text-muted-foreground">{t('兌換碼')}</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={redeemCode}
                     onChange={(e) => setRedeemCode(e.target.value)}
-                    placeholder="请输入兑换码"
+                    placeholder={t('請輸入兌換碼')}
                     className="flex-1 px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                   <Button
@@ -96,11 +98,11 @@ export default function TaskCenterPage() {
                     variant="outline"
                     className="shrink-0 border-border"
                   >
-                    {redeemStatus === 'loading' ? '兑换中…' : redeemStatus === 'success' ? '兑换成功' : '兑换'}
+                    {redeemStatus === 'loading' ? t('兌換中…') : redeemStatus === 'success' ? t('兌換成功') : t('兌換')}
                   </Button>
                 </div>
                 {redeemStatus === 'error' && (
-                  <p className="text-xs text-destructive">兑换失败，请检查兑换码或稍后重试。</p>
+                  <p className="text-xs text-destructive">{t('兌換失敗，請檢查兌換碼或稍後重試。')}</p>
                 )}
               </div>
             </CardContent>
@@ -111,11 +113,11 @@ export default function TaskCenterPage() {
 
         {/* 积分获得记录（与充值记录分开） */}
         <section className="space-y-3">
-          <h2 className="text-sm font-medium text-foreground tracking-wide">积分获得记录</h2>
+          <h2 className="text-sm font-medium text-foreground tracking-wide">{t('積分獲得記錄')}</h2>
           <div className="rounded-lg border border-border bg-muted/10 overflow-hidden">
             {earnRecords.length === 0 ? (
               <div className="px-4 py-8 text-center text-xs text-muted-foreground">
-                暂无记录。使用兑换码后，将在此展示。
+                {t('暫無記錄。使用兌換碼後，將在此展示。')}
               </div>
             ) : (
               <ul className="divide-y divide-border">

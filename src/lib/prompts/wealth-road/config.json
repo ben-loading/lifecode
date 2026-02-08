@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "description": "财富之路深度报告 Prompt v1.0",
   "model": "gpt-4o",
-  "deepseekModel": "deepseek-reasoner",
+  "deepseekModel": "deepseek-chat",
   "temperature": 0.7,
   "maxTokens": 8192,
   "responseFormat": {

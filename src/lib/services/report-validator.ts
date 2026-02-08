@@ -9,6 +9,30 @@
 import { z } from 'zod'
 
 /**
+ * 清理 JSON 字符串中的常见问题（中文标点、未转义引号等）
+ */
+function cleanJsonString(jsonStr: string): string {
+  let cleaned = jsonStr
+  // 替换中文标点符号为英文标点符号
+  cleaned = cleaned.replace(/，/g, ',')  // 中文逗号
+  cleaned = cleaned.replace(/：/g, ':')  // 中文冒号
+  cleaned = cleaned.replace(/；/g, ';')  // 中文分号
+  cleaned = cleaned.replace(/（/g, '(')  // 中文左括号
+  cleaned = cleaned.replace(/）/g, ')')  // 中文右括号
+  cleaned = cleaned.replace(/【/g, '[')  // 中文左方括号
+  cleaned = cleaned.replace(/】/g, ']')  // 中文右方括号
+  cleaned = cleaned.replace(/"/g, '"')   // 中文左引号
+  cleaned = cleaned.replace(/"/g, '"')   // 中文右引号
+  cleaned = cleaned.replace(/'/g, "'")   // 中文左单引号
+  cleaned = cleaned.replace(/'/g, "'")   // 中文右单引号
+  
+  // 修复常见的 JSON 格式问题：末尾多余的逗号
+  cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1')
+  
+  return cleaned
+}
+
+/**
  * 从 LLM 返回文本中提取 JSON 字符串（用于 deepseek-reasoner 等带 <think>...</think> 或 ```json 的模型）
  */
 export function extractJsonFromResponse(raw: string): string {
@@ -22,12 +46,15 @@ export function extractJsonFromResponse(raw: string): string {
   const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/)
   if (codeBlockMatch) {
     const block = codeBlockMatch[1].trim()
-    if (block.startsWith('{')) return block
+    if (block.startsWith('{')) return cleanJsonString(block)
   }
   // 4. 尝试找 { ... } 的边界（从第一个 { 到最后一个 }）
   const first = text.indexOf('{')
   const last = text.lastIndexOf('}')
-  if (first !== -1 && last !== -1 && last > first) return text.slice(first, last + 1)
+  if (first !== -1 && last !== -1 && last > first) {
+    const extracted = text.slice(first, last + 1)
+    return cleanJsonString(extracted)
+  }
   throw new Error(
     'No JSON object found in LLM response. Response length: ' +
       text.length +

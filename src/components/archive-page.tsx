@@ -12,14 +12,14 @@ import { MAIN_REPORT_COST } from '@/lib/costs'
 import { LoginModal } from '@/components/login-modal'
 import { InsufficientBalanceDialog } from '@/components/insufficient-balance-dialog'
 
-// 分析步骤配置（与后端流程对应）
+// 分析步驟配置（與後端流程對應）
 const analysisStepsConfig = [
-  { id: 1, label: '分析时辰', subLabel: '解析出生时间与地区' },
-  { id: 2, label: '分析八字', subLabel: '节气四柱排盘' },
-  { id: 3, label: '分析排盘', subLabel: '紫微斗数命盘' },
-  { id: 4, label: '先天命盘解析', subLabel: '构建分析上下文' },
-  { id: 5, label: '大限与流年解析', subLabel: '生成命理解读' },
-  { id: 6, label: '输出解码结果', subLabel: '校验与呈现' },
+  { id: 1, label: '分析時辰', subLabel: '解析出生時間與地區' },
+  { id: 2, label: '分析八字', subLabel: '節氣四柱排盤' },
+  { id: 3, label: '分析排盤', subLabel: '紫微斗數命盤' },
+  { id: 4, label: '先天命盤解析', subLabel: '構建分析上下文' },
+  { id: 5, label: '大限與流年解析', subLabel: '生成命理解讀' },
+  { id: 6, label: '輸出解碼結果', subLabel: '校驗與呈現' },
 ]
 
 const ANALYSIS_STEPS_DELAY_MS = 480 // 档案名出现后再展示步骤，更从容
@@ -86,15 +86,15 @@ export function ArchivePage() {
     }
     const needsLocation = user.birthTimeMode !== 'shichen'
     if (!user.gender || !user.birthDate) {
-      setError('请先完善性别与出生日期')
+      setError('請先完善性別與出生日期')
       return
     }
     if (needsLocation && !user.birthLocation?.trim()) {
-      setError('请先选择出生地区（用于真太阳时校准）')
+      setError('請先選擇出生地區（用於真太陽時校準）')
       return
     }
     if (user.birthCalendar === 'lunar' && !user.lunarDate) {
-      setError('请先完善农历日期')
+      setError('請先完善農曆日期')
       return
     }
     if (balance < MAIN_REPORT_COST) {
@@ -126,7 +126,7 @@ export function ArchivePage() {
       }))
       router.push(`/report?jobId=${jobId}&archiveId=${archive.id}`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '发起失败')
+      setError(e instanceof Error ? e.message : '發起失敗')
     } finally {
       setLoading(false)
     }
@@ -146,21 +146,21 @@ export function ArchivePage() {
 
       {/* Content */}
       <div className="px-6 py-8 min-h-[60vh]">
-        {/* 表单：未点击解码时显示 */}
+        {/* 表單：未點擊解碼時顯示 */}
         {!loading && (
           <div className="space-y-8 transition-opacity duration-300">
             <div className="text-center space-y-2">
               <h1 className="text-2xl font-medium tracking-wider">
-                为这份"编码"备注档案
+                為這份「編碼」備註檔案
               </h1>
               <p className="text-sm text-muted-foreground">
-                未来更方便查阅
+                未來更方便查閱
               </p>
             </div>
 
             <div className="space-y-4">
               <div className="space-y-3">
-                <label className="text-xs text-muted-foreground tracking-wider">#档案备注</label>
+                <label className="text-xs text-muted-foreground tracking-wider">#檔案備註</label>
                 <input
                   type="text"
                   value={archiveNote}
@@ -182,36 +182,36 @@ export function ArchivePage() {
                 disabled={!archiveNote.trim()}
                 className="w-full h-12 rounded-lg"
               >
-                开启解码
+                開啟解碼
               </Button>
               <p className="text-xs text-muted-foreground text-center">
-                不用担心，这份编码对会得到安全的保护
+                不用擔心，這份編碼對會得到安全的保護
               </p>
             </div>
           </div>
         )}
 
-        {/* 解码视图：点击后描述/输入/按钮消失，显示档案名 + 正在分析，再展示步骤 */}
+        {/* 解碼視圖：點擊後描述/輸入/按鈕消失，顯示檔案名 + 正在分析，再展示步驟 */}
         {loading && (
           <div
             className={`transition-opacity duration-500 ease-out ${
               decodingFadeIn ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            {/* 档案名 + 正在分析 */}
+            {/* 檔案名 + 正在分析 */}
             <section className="text-center space-y-3 mb-8 pt-4">
               <h1 className="text-2xl tracking-[0.2em] font-semibold text-foreground">
-                {archiveNote.trim() || '档案'}
+                {archiveNote.trim() || '檔案'}
               </h1>
               <p className="text-sm text-muted-foreground tracking-wide">正在分析</p>
               <p className="text-xs text-muted-foreground leading-relaxed max-w-xs mx-auto">
-                解码不会因关闭页面而中断，完成后将自动展示报告
+                解碼不會因關閉頁面而中斷，完成後將自動展示報告
               </p>
             </section>
 
             <Separator className="bg-border mb-6" />
 
-            {/* 分析步骤：延迟出现并淡入 */}
+            {/* 分析步驟：延遲出現並淡入 */}
             {analysisStepsVisible && (
               <div
                 className={`transition-opacity duration-500 ease-out ${
@@ -264,7 +264,7 @@ export function ArchivePage() {
                         {step.label}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {isCompleted ? '已完成' : isInProgress ? '进行中…' : step.subLabel ?? '待处理'}
+                        {isCompleted ? '已完成' : isInProgress ? '進行中…' : step.subLabel ?? '待處理'}
                       </p>
                     </div>
                   </div>
@@ -272,7 +272,7 @@ export function ArchivePage() {
                   })}
                 </div>
 
-                {/* 进度百分比 */}
+                {/* 進度百分比 */}
                 <div className="mt-8 pt-6 border-t border-border text-center space-y-2">
                   <p className="text-2xl font-medium text-primary">
                     {loading && currentStep < 5
@@ -283,7 +283,7 @@ export function ArchivePage() {
                     %
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {loading && currentStep === 5 ? '正在生成命理解读…' : '分析进度'}
+                    {loading && currentStep === 5 ? '正在生成命理解讀…' : '分析進度'}
                   </p>
                 </div>
               </div>

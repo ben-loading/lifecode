@@ -25,6 +25,7 @@ export interface BuiltPrompt {
  * 构建主报告生成 Prompt
  * @param iztroInput - iztro 计算的命盘数据
  * @returns 完整的 Prompt（system + user message）
+ * 注意：LLM 始终使用繁體中文輸出所有內容
  */
 export async function buildMainReportPrompt(iztroInput: IztroInput): Promise<BuiltPrompt> {
   // 获取当前实际公历时间
@@ -41,7 +42,7 @@ export async function buildMainReportPrompt(iztroInput: IztroInput): Promise<Bui
   // 加载模板
   const template = loadPromptTemplate('main-report')
   
-  // 替换 system prompt 中的时间变量
+  // 替换 system prompt 中的时间变量（移除语言要求）
   const systemPrompt = renderTemplate(template.system, {
     CURRENT_YEAR: String(currentYear),
     CURRENT_MONTH: String(currentMonth),
@@ -49,7 +50,7 @@ export async function buildMainReportPrompt(iztroInput: IztroInput): Promise<Bui
     NEXT_YEAR: String(nextYear),
   })
   
-  // 渲染 user message（替换 {{IZTRO_INPUT}} 变量）
+  // 渲染 user message（替换 {{IZTRO_INPUT}} 变量，移除语言要求）
   const userMessage = renderTemplate(template.userTemplate, {
     IZTRO_INPUT: JSON.stringify(iztroInput, null, 2),
     CURRENT_DATE: currentDate,
@@ -69,6 +70,7 @@ export async function buildMainReportPrompt(iztroInput: IztroInput): Promise<Bui
 /**
  * 构建未来运势深度报告 Prompt
  * 输入：档案 ID；内部拉取档案、iztro 命盘、主报告，组装 GENDER、IZTRO_INPUT、MAIN_REPORT、CURRENT_DATE。
+ * 注意：LLM 始终使用繁體中文輸出所有內容
  */
 export async function buildFutureFortunePrompt(archiveId: string): Promise<BuiltPrompt> {
   const archive = await getArchiveById(archiveId)
@@ -94,6 +96,7 @@ export async function buildFutureFortunePrompt(archiveId: string): Promise<Built
   const currentDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`
   
   const template = loadPromptTemplate('future-fortune')
+  
   const userMessage = renderTemplate(template.userTemplate, {
     GENDER: archive.gender === 'male' ? '男' : '女',
     IZTRO_INPUT: JSON.stringify(iztroInput, null, 2),
@@ -103,7 +106,7 @@ export async function buildFutureFortunePrompt(archiveId: string): Promise<Built
     CURRENT_MONTH: String(currentMonth),
   })
   
-  // 替换 system prompt 中的时间变量
+  // 替换 system prompt 中的时间变量（移除语言要求）
   const systemPrompt = renderTemplate(template.system, {
     CURRENT_YEAR: String(currentYear),
     CURRENT_MONTH: String(currentMonth),
@@ -123,6 +126,7 @@ export async function buildFutureFortunePrompt(archiveId: string): Promise<Built
 /**
  * 构建仕途探索深度报告 Prompt
  * 输入与未来运势一致：档案 ID；内部拉取档案、iztro 命盘、主报告，组装 GENDER、IZTRO_INPUT、MAIN_REPORT、CURRENT_DATE。
+ * 注意：LLM 始终使用繁體中文輸出所有內容
  */
 export async function buildCareerPathPrompt(archiveId: string): Promise<BuiltPrompt> {
   const archive = await getArchiveById(archiveId)
@@ -149,7 +153,7 @@ export async function buildCareerPathPrompt(archiveId: string): Promise<BuiltPro
   
   const template = loadPromptTemplate('career-path')
   
-  // 替换 system prompt 中的时间变量
+  // 替换 system prompt 中的时间变量（移除语言要求）
   const systemPrompt = renderTemplate(template.system, {
     CURRENT_YEAR: String(currentYear),
     CURRENT_MONTH: String(currentMonth),
@@ -174,6 +178,7 @@ export async function buildCareerPathPrompt(archiveId: string): Promise<BuiltPro
 /**
  * 构建财富之路深度报告 Prompt
  * 输入与未来运势、仕途探索一致：档案 ID；内部拉取档案、iztro 命盘、主报告，组装 GENDER、IZTRO_INPUT、MAIN_REPORT、CURRENT_DATE。
+ * 注意：LLM 始终使用繁體中文輸出所有內容
  */
 export async function buildWealthRoadPrompt(archiveId: string): Promise<BuiltPrompt> {
   const archive = await getArchiveById(archiveId)
@@ -200,7 +205,7 @@ export async function buildWealthRoadPrompt(archiveId: string): Promise<BuiltPro
   
   const template = loadPromptTemplate('wealth-road')
   
-  // 替换 system prompt 中的时间变量
+  // 替换 system prompt 中的时间变量（移除语言要求）
   const systemPrompt = renderTemplate(template.system, {
     CURRENT_YEAR: String(currentYear),
     CURRENT_MONTH: String(currentMonth),
@@ -224,6 +229,7 @@ export async function buildWealthRoadPrompt(archiveId: string): Promise<BuiltPro
 /**
  * 构建爱情姻缘深度报告 Prompt
  * 输入与未来运势、仕途探索、财富之路一致：档案 ID；内部拉取档案、iztro 命盘、主报告，组装 GENDER、IZTRO_INPUT、MAIN_REPORT、CURRENT_DATE。
+ * 注意：LLM 始终使用繁體中文輸出所有內容
  */
 export async function buildLoveMarriagePrompt(archiveId: string): Promise<BuiltPrompt> {
   const archive = await getArchiveById(archiveId)
@@ -250,7 +256,7 @@ export async function buildLoveMarriagePrompt(archiveId: string): Promise<BuiltP
   
   const template = loadPromptTemplate('love-marriage')
   
-  // 替换 system prompt 中的时间变量
+  // 替换 system prompt 中的时间变量（移除语言要求）
   const systemPrompt = renderTemplate(template.system, {
     CURRENT_YEAR: String(currentYear),
     CURRENT_MONTH: String(currentMonth),

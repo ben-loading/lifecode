@@ -4,6 +4,7 @@ import { Noto_Serif_SC, Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
 import { AppProvider } from '@/lib/context'
+import { LanguageProvider } from '@/lib/context-language'
 import './globals.css'
 
 const notoSerifSC = Noto_Serif_SC({ 
@@ -47,12 +48,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${notoSerifSC.variable} ${inter.variable} font-serif antialiased`}>
-        <AppProvider>
-          {/* 滚动发生在此层，弹窗锁 body 时不会导致整页左右移位 */}
-          <div className="h-full min-h-screen overflow-y-auto overflow-x-hidden">
-            {children}
-          </div>
-        </AppProvider>
+        <LanguageProvider>
+          <AppProvider>
+            {/* 滚动发生在此层，弹窗锁 body 时不会导致整页左右移位 */}
+            <div className="h-full min-h-screen overflow-y-auto overflow-x-hidden">
+              {children}
+            </div>
+          </AppProvider>
+        </LanguageProvider>
         <Toaster
           position="top-center"
           toastOptions={{

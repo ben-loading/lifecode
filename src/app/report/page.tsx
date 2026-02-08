@@ -21,6 +21,7 @@ import {
 } from 'recharts'
 import { Share2, BookOpen, Menu } from 'lucide-react'
 import { useAppContext } from '@/lib/context'
+import { useLanguage } from '@/lib/context-language'
 import { useState, useEffect } from 'react'
 import { SideMenu } from '@/components/side-menu'
 import { ShareDialog } from '@/components/share-dialog'
@@ -30,11 +31,12 @@ import type { ApiMainReport } from '@/lib/types/api'
 
 // 页面加载状态
 function ReportPageLoading() {
+  const { t } = useLanguage()
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-center space-y-4">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-        <p className="text-sm text-muted-foreground">加载中...</p>
+        <p className="text-sm text-muted-foreground">{t('載入中...')}</p>
       </div>
     </div>
   )
@@ -56,6 +58,7 @@ function ReportPageContent() {
   const archiveIdFromUrl = searchParams.get('archiveId')
   const archiveId = searchParams.get('archiveId')
   const { user, hasCompletedMainReport, setHasCompletedMainReport, setUser } = useAppContext()
+  const { t } = useLanguage()
   const [showMenu, setShowMenu] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [mainReport, setMainReport] = useState<ApiMainReport | null>(null)
@@ -140,7 +143,7 @@ function ReportPageContent() {
     const poll = async () => {
       try {
         if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
-          setGenerationError('报告生成超时，请重新生成')
+          setGenerationError(t('報告生成逾時，請重新生成'))
           return
         }
         const job = await getReportJobStatus(jobId)
@@ -156,12 +159,12 @@ function ReportPageContent() {
             setHasCompletedMainReport(true)
           } else {
             // 任务标记完成但数据库无报告（生成不稳定/未写入），展示错误并允许重新生成
-            setGenerationError('报告数据未能加载，请重新生成')
+            setGenerationError(t('報告資料未能載入，請重新生成'))
           }
           return
         }
         if (job.status === 'failed') {
-          setGenerationError(job.error || '报告生成失败，请重试')
+          setGenerationError(job.error || t('報告生成失敗，請重試'))
           return
         }
       } catch {
@@ -425,7 +428,7 @@ function ReportPageContent() {
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="text-lg tracking-wider font-medium text-primary">人生解码</span>
+          <span className="text-lg tracking-wider font-medium text-primary">{t('人生解碼')}</span>
           <button
             onClick={() => router.push('/chart')}
             className="text-foreground hover:opacity-70 transition-opacity"
@@ -440,15 +443,15 @@ function ReportPageContent() {
       {showEmptyState ? (
         /* 未生成主报告：引导去填写编码并生成 */
         <div className="px-5 py-12 flex-1 flex flex-col items-center justify-center text-center space-y-6">
-          <p className="text-sm text-muted-foreground">您还未生成主报告</p>
+          <p className="text-sm text-muted-foreground">{t('您還未生成主報告')}</p>
           <p className="text-xs text-muted-foreground max-w-xs">
-            填写出生信息并开启解码，即可获得基于紫微斗数与命盘的主报告
+            {t('填寫出生資訊並開啟解碼，即可獲得基於紫微斗數與命盤的主報告')}
           </p>
           <Button
             onClick={() => router.push('/input')}
             className="rounded-full"
           >
-            填写编码并生成
+            {t('填寫編碼並生成')}
           </Button>
         </div>
       ) : (loadingReport || (!reportBelongsToCurrentArchive && !generationError && !noReportForCurrentArchive)) ? (
@@ -456,30 +459,30 @@ function ReportPageContent() {
         <div className="px-5 py-12 flex-1 flex flex-col items-center justify-center text-center space-y-4">
           {fetchStatusError ? (
             <>
-              <p className="text-sm text-muted-foreground">加载失败，请刷新重试</p>
+              <p className="text-sm text-muted-foreground">{t('載入失敗，請重新整理重試')}</p>
               <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="rounded-full">
-                刷新页面
+                {t('重新整理頁面')}
               </Button>
             </>
           ) : (
             <>
               <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-muted-foreground">加载报告中...</p>
+              <p className="text-sm text-muted-foreground">{t('載入報告中...')}</p>
             </>
           )}
           {showLoadingRegenerate && effectiveArchiveId && !fetchStatusError && (
             <div className="pt-4 space-y-2">
-              <p className="text-xs text-muted-foreground">加载时间较长，可能报告未写入</p>
+              <p className="text-xs text-muted-foreground">{t('載入時間較長，可能報告未寫入')}</p>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={isRegenerating}
                 onClick={() => {
-                  setGenerationError('报告加载超时，请重新生成')
+                  setGenerationError(t('報告載入逾時，請重新生成'))
                 }}
                 className="rounded-full"
               >
-                重新生成
+                {t('重新生成')}
               </Button>
             </div>
           )}
@@ -487,9 +490,9 @@ function ReportPageContent() {
       ) : noReportForCurrentArchive ? (
         /* 获取不到报告：显示生成失败，点击重新生成后跳转带 jobId 的 report 页，由档案页或本页仅展示加载报告中 */
         <div className="px-5 py-12 flex-1 flex flex-col items-center justify-center text-center space-y-6">
-          <p className="text-sm font-medium text-foreground">生成失败</p>
+          <p className="text-sm font-medium text-foreground">{t('生成失敗')}</p>
           <p className="text-xs text-muted-foreground max-w-xs">
-            报告未能生成，可免费重新生成，不会再次扣除能量
+            {t('報告未能生成，可免費重新生成，不會再次扣除能量')}
           </p>
           {retryError && (
             <p className="text-xs text-destructive max-w-xs">{retryError}</p>
@@ -500,7 +503,7 @@ function ReportPageContent() {
               onClick={() => router.push('/input')}
               className="text-xs text-primary underline hover:no-underline"
             >
-              去填写出生信息
+              {t('去填写出生信息')}
             </button>
           ) : (
             <Button
@@ -517,11 +520,11 @@ function ReportPageContent() {
                 } catch (err: unknown) {
                   const msg = err instanceof Error ? err.message : String(err)
                   if (msg.includes('请先使用') || msg.includes('NEED_FIRST_GENERATE')) {
-                    setRetryError('请先使用「开启解码」生成报告')
+                    setRetryError(t('請先使用「開啟解碼」生成報告'))
                   } else if (msg.includes('已有生成任务进行中') || msg.includes('JOB_ALREADY_RUNNING')) {
-                    setRetryError('该档案已有生成任务进行中，请稍后再试')
+                    setRetryError(t('該檔案已有生成任務進行中，請稍後再試'))
                   } else {
-                    setRetryError('重新生成失败，请稍后再试')
+                    setRetryError(t('重新生成失敗，請稍後再試'))
                   }
                 } finally {
                   setIsRegenerating(false)
@@ -529,7 +532,7 @@ function ReportPageContent() {
               }}
               className="rounded-full"
             >
-              {isRegenerating ? '提交中…' : '重新生成'}
+              {isRegenerating ? t('提交中…') : t('重新生成')}
             </Button>
           )}
         </div>
@@ -539,16 +542,16 @@ function ReportPageContent() {
           {generationError ? (
             /* 生成失败：点击重新生成后跳转带 jobId 的 report 页，仅展示加载报告中 */
             <section className="space-y-6 text-center py-12">
-              <p className="text-sm font-medium text-foreground">生成失败</p>
+              <p className="text-sm font-medium text-foreground">{t('生成失敗')}</p>
               <p className="text-xs text-muted-foreground max-w-xs mx-auto whitespace-pre-wrap">{generationError}</p>
-              <p className="text-xs text-muted-foreground max-w-xs mx-auto">可免费重新生成，不会再次扣除能量</p>
+              <p className="text-xs text-muted-foreground max-w-xs mx-auto">{t('可免費重新生成，不會再次扣除能量')}</p>
               {generationError.includes('请先使用') ? (
                 <button
                   type="button"
                   onClick={() => router.push('/input')}
                   className="text-xs text-primary underline hover:no-underline"
                 >
-                  去填写出生信息
+                  {t('去填写出生信息')}
                 </button>
               ) : (
                 <Button
@@ -565,11 +568,11 @@ function ReportPageContent() {
                     } catch (err: unknown) {
                       const msg = err instanceof Error ? err.message : String(err)
                       if (msg.includes('请先使用') || msg.includes('NEED_FIRST_GENERATE')) {
-                        setGenerationError('请先使用「开启解码」生成报告')
+                        setGenerationError(t('請先使用「開啟解碼」生成報告'))
                       } else if (msg.includes('已有生成任务进行中') || msg.includes('JOB_ALREADY_RUNNING')) {
-                        setGenerationError('该档案已有生成任务进行中，请稍后再试')
+                        setGenerationError(t('該檔案已有生成任務進行中，請稍後再試'))
                       } else {
-                        setGenerationError('重新生成失败，请稍后再试')
+                        setGenerationError(t('重新生成失敗，請稍後再試'))
                       }
                     } finally {
                       setIsRegenerating(false)
@@ -577,7 +580,7 @@ function ReportPageContent() {
                   }}
                   className="rounded-full"
                 >
-                  {isRegenerating ? '提交中…' : '重新生成'}
+                  {isRegenerating ? t('提交中…') : t('重新生成')}
                 </Button>
               )}
             </section>
@@ -595,7 +598,7 @@ function ReportPageContent() {
           {/* 人生主线 */}
           <section className="space-y-4">
             <div className="text-center space-y-2">
-              <p className="text-xs text-muted-foreground tracking-widest uppercase">人 生 剧 本</p>
+              <p className="text-xs text-muted-foreground tracking-widest uppercase">人 生 劇 本</p>
               <h2 className="text-xl tracking-wider font-medium">{lifeScript.title}</h2>
             </div>
             <p className="text-sm text-foreground/70 leading-[1.8] text-justify">
@@ -621,7 +624,7 @@ function ReportPageContent() {
           {/* 性格特质构成 */}
           <section className="space-y-4">
             <h3 className="text-center text-xs tracking-widest text-muted-foreground uppercase">
-              性格特质构成
+              性格特質構成
             </h3>
             <Card className="border-border bg-white/60 shadow-none">
               <CardContent className="p-6">
@@ -664,11 +667,11 @@ function ReportPageContent() {
 
           {/* 宫位解析 */}
           <section className="space-y-6">
-            <h3 className="text-center text-xs tracking-widest text-muted-foreground uppercase">宫 位 解 析</h3>
+            <h3 className="text-center text-xs tracking-widest text-muted-foreground uppercase">宮 位 解 析</h3>
 
             {/* 表层性格 */}
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground tracking-wider">表层性格</p>
+              <p className="text-xs text-muted-foreground tracking-wider">表層性格</p>
               <div className="space-y-2 pl-3 border-l border-border">
                 <h4 className="text-sm font-medium tracking-wide">{palaceAnalysis.surfacePersonality.title}</h4>
                 <p className="text-sm text-foreground/70 leading-[1.8]">
@@ -679,7 +682,7 @@ function ReportPageContent() {
 
             {/* 深层欲望 */}
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground tracking-wider">深层欲望</p>
+              <p className="text-xs text-muted-foreground tracking-wider">深層慾望</p>
               <div className="space-y-2 pl-3 border-l border-border">
                 <h4 className="text-sm font-medium tracking-wide">{palaceAnalysis.deepDesire.title}</h4>
                 <p className="text-sm text-foreground/70 leading-[1.8]">
@@ -690,7 +693,7 @@ function ReportPageContent() {
 
             {/* 思维模式 */}
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground tracking-wider">思维模式</p>
+              <p className="text-xs text-muted-foreground tracking-wider">思維模式</p>
               <div className="space-y-2 pl-3 border-l border-border">
                 <h4 className="text-sm font-medium tracking-wide">{palaceAnalysis.thinkingPattern.title}</h4>
                 <p className="text-sm text-foreground/70 leading-[1.8]">
@@ -701,7 +704,7 @@ function ReportPageContent() {
 
             {/* 财富逻辑 */}
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground tracking-wider">财富逻辑</p>
+              <p className="text-xs text-muted-foreground tracking-wider">財富邏輯</p>
               <div className="space-y-2 pl-3 border-l border-border">
                 <h4 className="text-sm font-medium tracking-wide">{palaceAnalysis.wealthLogic.title}</h4>
                 <p className="text-sm text-foreground/70 leading-[1.8]">
@@ -727,7 +730,7 @@ function ReportPageContent() {
           {/* 多维解析与验证 - 雷达图 */}
           <section className="space-y-4">
             <h3 className="text-center text-xs tracking-widest text-muted-foreground uppercase">
-              能量分析
+              {t('能量分析')}
             </h3>
             <Card className="border-border bg-white/60 shadow-none">
               <CardContent className="p-2">
@@ -771,13 +774,13 @@ function ReportPageContent() {
 
           <Separator className="bg-border" />
 
-          {/* 专业天命 */}
+          {/* 專業天命 */}
           <section className="space-y-4">
-            <h3 className="text-center text-xs tracking-widest text-muted-foreground uppercase">专 业 天 命</h3>
+            <h3 className="text-center text-xs tracking-widest text-muted-foreground uppercase">專 業 天 命</h3>
             <div className="space-y-4">
               {/* 五行赛道 */}
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground tracking-wider">五行赛道</p>
+                <p className="text-xs text-muted-foreground tracking-wider">五行賽道</p>
                 <p className="text-sm text-foreground/70 leading-[1.8] pl-3 border-l border-border">
                   {careerDestiny.tracks}
                 </p>
@@ -785,7 +788,7 @@ function ReportPageContent() {
 
               {/* 具体行业 */}
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground tracking-wider">具体行业</p>
+                <p className="text-xs text-muted-foreground tracking-wider">具體行業</p>
                 <p className="text-sm text-foreground/70 leading-[1.8] pl-3 border-l border-border">
                   {careerDestiny.industries}
                 </p>
@@ -793,7 +796,7 @@ function ReportPageContent() {
 
               {/* 职能定位 */}
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground tracking-wider">职能定位</p>
+                <p className="text-xs text-muted-foreground tracking-wider">職能定位</p>
                 <p className="text-sm text-foreground/70 leading-[1.8] pl-3 border-l border-border">
                   {careerDestiny.position}
                 </p>
@@ -805,7 +808,7 @@ function ReportPageContent() {
 
           {/* 人生阶段 */}
           <section className="space-y-4">
-            <h3 className="text-center text-xs tracking-widest text-muted-foreground uppercase">人 生 四 阶</h3>
+            <h3 className="text-center text-xs tracking-widest text-muted-foreground uppercase">人 生 四 階</h3>
             <div className="space-y-5">
               {lifeStages.map((item) => (
                 <div key={item.stage} className="space-y-2">
@@ -825,11 +828,11 @@ function ReportPageContent() {
 
           {/* 流年运势 */}
           <section className="space-y-4">
-            <h3 className="text-center text-xs tracking-widest text-muted-foreground uppercase">流 年 运 势</h3>
+            <h3 className="text-center text-xs tracking-widest text-muted-foreground uppercase">流 年 運 勢</h3>
             <Card className="border-border bg-white/60 shadow-none">
-              <CardContent className="p-3 pb-4">
+              <CardContent className="px-3 py-3 pb-4">
                 <ResponsiveContainer width="100%" height={200}>
-                  <AreaChart data={yearlyFortuneData} margin={{ top: 10, right: 15, left: -20, bottom: 5 }}>
+                  <AreaChart data={yearlyFortuneData} margin={{ top: 10, right: 25, left: 25, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#D4A574" strokeOpacity={0.3} vertical={false} />
                     <XAxis
                       dataKey="year"
@@ -843,7 +846,7 @@ function ReportPageContent() {
                       axisLine={false}
                       tickLine={false}
                       domain={[0, 100]}
-                      width={30}
+                      width={25}
                     />
                     <Area
                       type="natural"
@@ -855,7 +858,7 @@ function ReportPageContent() {
                     />
                   </AreaChart>
                 </ResponsiveContainer>
-                <p className="text-xs text-center text-muted-foreground mt-1">← 安全指数走势</p>
+                <p className="text-xs text-center text-muted-foreground mt-1">← 安全指數走勢</p>
               </CardContent>
             </Card>
 
@@ -882,7 +885,7 @@ function ReportPageContent() {
                         )}
                         {item.strategy && (
                           <div className="pt-2 mt-2 border-t border-border">
-                            <p className="text-xs text-muted-foreground mb-1">策略建议</p>
+                            <p className="text-xs text-muted-foreground mb-1">策略建議</p>
                             <p className="text-sm text-foreground leading-[1.8] font-medium">
                               {item.strategy}
                             </p>
@@ -933,14 +936,14 @@ function ReportPageContent() {
                 className="flex-1 h-12 rounded-full bg-transparent"
               >
                 <Share2 className="w-4 h-4 mr-2" />
-                分享一下
+                {t('分享一下')}
               </Button>
               <Button
                 onClick={() => router.push('/deep-reading')}
                 className="flex-1 h-12 rounded-full"
               >
                 <BookOpen className="w-4 h-4 mr-2" />
-                深度解读
+                {t('深度解讀')}
               </Button>
             </div>
           </div>

@@ -5,11 +5,13 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { DeepReadingPage } from '@/components/deep-reading-page'
 import { useAppContext } from '@/lib/context'
+import { useLanguage } from '@/lib/context-language'
 import { getArchiveCached, listArchivesCached } from '@/lib/api-cache'
 
 function DeepReadingRouteContent() {
   const router = useRouter()
   const { user, setUser } = useAppContext()
+  const { t } = useLanguage()
   const searchParams = useSearchParams()
   const archiveIdFromUrl = searchParams.get('archiveId')
   // URL 参数优先，避免刷新时丢失档案状态；无 URL 参数时用 context 的 currentArchiveId
@@ -68,16 +70,21 @@ function DeepReadingRouteContent() {
   )
 }
 
+function DeepReadingRouteLoading() {
+  const { t } = useLanguage()
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center space-y-4">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-sm text-muted-foreground">{t('載入中...')}</p>
+      </div>
+    </div>
+  )
+}
+
 export default function DeepReadingRoute() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-muted-foreground">加载中...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<DeepReadingRouteLoading />}>
       <DeepReadingRouteContent />
     </Suspense>
   )

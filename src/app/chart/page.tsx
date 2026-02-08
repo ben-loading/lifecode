@@ -161,7 +161,7 @@ export default function ZiweiChartPage() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-medium tracking-wide">紫微斗数命盘</h1>
+          <h1 className="text-lg font-medium tracking-wide">紫微斗數命盤</h1>
         </div>
       </header>
 
@@ -169,39 +169,39 @@ export default function ZiweiChartPage() {
         {loading ? (
           <div className="text-center py-12 space-y-4">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-sm text-muted-foreground">加载命盘资料中…</p>
+            <p className="text-sm text-muted-foreground">載入命盤資料中…</p>
           </div>
         ) : !user.isLoggedIn ? (
           <div className="text-center py-12 space-y-4">
-            <p className="text-sm text-muted-foreground">请先登录后再查看命盘。</p>
+            <p className="text-sm text-muted-foreground">請先登入後再查看命盤。</p>
             <button
               onClick={() => router.push('/')}
               className="text-sm text-primary font-medium underline"
             >
-              返回首页
+              返回首頁
             </button>
           </div>
         ) : isEmpty ? (
           <div className="text-center py-12 space-y-4">
             <p className="text-sm text-muted-foreground">
-              暂无档案或档案未填写出生信息。请先选择档案或创建档案并填写出生日期、时间与地区。
+              暫無檔案或檔案未填寫出生資訊。請先選擇檔案或建立檔案並填寫出生日期、時間與地區。
             </p>
             <button
               onClick={() => router.push('/input')}
               className="text-sm text-primary font-medium underline"
             >
-              去填写出生信息
+              去填寫出生資訊
             </button>
             <button
               onClick={() => router.push('/archive')}
               className="block mx-auto mt-2 text-sm text-muted-foreground hover:text-foreground"
             >
-              查看档案列表
+              查看檔案列表
             </button>
           </div>
         ) : !astrolabe ? (
           <div className="text-center py-12">
-            <p className="text-sm text-muted-foreground">排盘失败，请检查出生日期与时间。</p>
+            <p className="text-sm text-muted-foreground">排盤失敗，請檢查出生日期與時間。</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -209,17 +209,17 @@ export default function ZiweiChartPage() {
             <div className="rounded-lg border border-primary/20 bg-gradient-to-b from-primary/[0.05] to-transparent overflow-hidden">
               <div className="px-3 py-1.5 border-b border-primary/10 bg-primary/5">
                 <h2 className="text-[11px] font-semibold tracking-widest text-primary uppercase">
-                  命盘概要
+                  命盤概要
                 </h2>
               </div>
               <div className="px-3 py-2.5 space-y-2.5">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">阳历</span>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">陽曆</span>
                     <span className="font-medium text-foreground truncate">{astrolabe.solarDate ?? '—'}</span>
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">农历</span>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">農曆</span>
                     <span className="font-medium text-foreground truncate">{astrolabe.lunarDate ?? '—'}</span>
                   </div>
                   <div className="col-span-2 flex items-baseline gap-2">
@@ -227,7 +227,7 @@ export default function ZiweiChartPage() {
                     <span className="font-medium tracking-wide text-foreground">{astrolabe.chineseDate ?? '—'}</span>
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">时辰</span>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">時辰</span>
                     <span className="font-medium text-foreground">{astrolabe.time ?? '—'} {astrolabe.timeRange ?? ''}</span>
                   </div>
                   <div className="flex items-baseline gap-2">
@@ -238,11 +238,11 @@ export default function ZiweiChartPage() {
                 <div className="h-px bg-border/80" />
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">命宫</span>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">命宮</span>
                     <span className="font-medium text-primary">{astrolabe.earthlyBranchOfSoulPalace ?? '—'}</span>
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">身宫</span>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground shrink-0">身宮</span>
                     <span className="font-medium text-primary">{astrolabe.earthlyBranchOfBodyPalace ?? '—'}</span>
                   </div>
                   <div className="flex items-baseline gap-2">
@@ -268,7 +268,7 @@ export default function ZiweiChartPage() {
             {/* 十二宫：方格盘，占主要视觉 */}
             <div className="space-y-1.5">
               <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                十二宫位 · 方格盘
+                十二宮位 · 方格盤
               </h2>
               <div className="grid grid-cols-4 grid-rows-4 gap-px w-full max-w-[420px] mx-auto aspect-square bg-border rounded-lg overflow-hidden border border-border">
                 {方格盘布局.map((item) => {
@@ -279,7 +279,7 @@ export default function ZiweiChartPage() {
                         className="bg-muted/30 flex items-center justify-center border border-border/60"
                         style={{ gridRow: '2 / 4', gridColumn: '2 / 4' }}
                       >
-                        <span className="text-sm font-medium text-muted-foreground tracking-wider">中宫</span>
+                        <span className="text-sm font-medium text-muted-foreground tracking-wider">中宮</span>
                       </div>
                     )
                   }

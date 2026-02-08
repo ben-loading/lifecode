@@ -133,7 +133,7 @@ export async function POST(request: Request) {
       await createTransaction(userId, {
         type: 'consume',
         amount: MAIN_REPORT_COST,
-        description: '主报告生成',
+        description: '主報告生成',
       })
     }
 

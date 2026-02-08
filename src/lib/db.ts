@@ -460,6 +460,145 @@ export async function redeemCode(code: string, userId: string): Promise<void> {
   await client.from('RedemptionCode').update({ usedBy: userId, usedAt: new Date().toISOString() }).eq('code', code.toUpperCase())
 }
 
+/**
+ * 生成唯一兑换码（8-12位，大写字母+数字，排除易混淆字符）
+ */
+function generateRedemptionCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // 排除 0/O/1/I
+  let code = ''
+  for (let i = 0; i < 9; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)]
+  }
+  return code
+}
+
+/**
+ * 确保生成的兑换码唯一
+ */
+async function ensureUniqueCode(): Promise<string> {
+  const client = getClient()
+  let code = generateRedemptionCode()
+  let attempts = 0
+  while (attempts < 10) {
+    const { data } = await client.from('RedemptionCode').select('code').eq('code', code).single()
+    if (!data) return code
+    code = generateRedemptionCode()
+    attempts++
+  }
+  throw new Error('无法生成唯一兑换码，请重试')
+}
+
+/**
+ * 创建兑换码
+ */
+export async function createRedemptionCode(params: {
+  amount: number
+  createdBy?: string
+  note?: string
+}): Promise<{ code: string; amount: number; createdAt: string }> {
+  const client = getClient()
+  const code = await ensureUniqueCode()
+  const now = new Date().toISOString()
+  const insert: Record<string, unknown> = {
+    code: code.toUpperCase(),
+    amount: params.amount,
+    createdAt: now,
+  }
+  // 注意：createdBy 字段暂未添加到数据库表，先注释掉
+  // if (params.createdBy) insert.createdBy = params.createdBy
+  if (params.note) insert.note = params.note
+  const { data, error } = await client.from('RedemptionCode').insert(insert).select('code, amount, createdAt').single()
+  if (error) throw new Error(`创建兑换码失败: ${error.message}`)
+  return {
+    code: data.code,
+    amount: data.amount,
+    createdAt: data.createdAt,
+  }
+}
+
+/**
+ * 查询兑换码列表
+ */
+export async function listRedemptionCodes(params?: {
+  limit?: number
+  offset?: number
+  includeUsed?: boolean
+}): Promise<{
+  codes: Array<{
+    code: string
+    amount: number
+    usedBy?: string
+    usedByEmail?: string
+    usedAt?: string
+    createdAt?: string
+    note?: string
+  }>
+  total: number
+}> {
+  const client = getClient()
+  const limit = params?.limit ?? 20
+  const offset = params?.offset ?? 0
+  const includeUsed = params?.includeUsed ?? true
+
+  let query = client.from('RedemptionCode').select('code, amount, usedBy, usedAt, createdAt, note', { count: 'exact' })
+  
+  if (!includeUsed) {
+    query = query.is('usedBy', null)
+  }
+  
+  query = query.order('createdAt', { ascending: false }).range(offset, offset + limit - 1)
+
+  const { data, error, count } = await query
+  if (error) throw new Error(`查询兑换码列表失败: ${error.message}`)
+  
+  // 获取所有使用者的邮箱
+  const usedByIds = (data || [])
+    .map((row) => row.usedBy)
+    .filter((id): id is string => Boolean(id))
+  const uniqueUsedByIds = [...new Set(usedByIds)]
+  
+  const userEmailMap = new Map<string, string>()
+  if (uniqueUsedByIds.length > 0) {
+    // 批量查询用户邮箱
+    const { data: users } = await client
+      .from('User')
+      .select('id, email')
+      .in('id', uniqueUsedByIds)
+    
+    if (users) {
+      users.forEach((user) => {
+        userEmailMap.set(user.id, user.email)
+      })
+    }
+  }
+  
+  return {
+    codes: (data || []).map((row) => ({
+      code: row.code,
+      amount: row.amount,
+      usedBy: row.usedBy ?? undefined,
+      usedByEmail: row.usedBy ? userEmailMap.get(row.usedBy) : undefined,
+      usedAt: row.usedAt ? new Date(row.usedAt).toISOString() : undefined,
+      createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
+      note: row.note ?? undefined,
+    })),
+    total: count ?? 0,
+  }
+}
+
+/**
+ * 删除未使用的兑换码
+ */
+export async function deleteRedemptionCode(code: string): Promise<void> {
+  const client = getClient()
+  // 先检查是否已使用
+  const { data } = await client.from('RedemptionCode').select('usedBy').eq('code', code.toUpperCase()).single()
+  if (!data) throw new Error('兑换码不存在')
+  if (data.usedBy) throw new Error('无法删除已使用的兑换码')
+  const { error } = await client.from('RedemptionCode').delete().eq('code', code.toUpperCase())
+  if (error) throw new Error(`删除兑换码失败: ${error.message}`)
+}
+
 // ==================== DeepReport ====================
 
 /**
