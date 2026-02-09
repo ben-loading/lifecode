@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useAppContext } from '@/lib/context'
-import { topup as apiTopup, getTransactions, getSession } from '@/lib/api-client'
+import { topup as apiTopup, getTransactions, getSession, createPaymentSession } from '@/lib/api-client'
 interface TopUpDialogProps {
   isOpen: boolean
   onClose: () => void
@@ -25,20 +25,35 @@ export function TopUpDialog({ isOpen, onClose, onSuccess }: TopUpDialogProps) {
     setError('')
     setIsProcessing(true)
     try {
-      const res = await apiTopup(selectedAmount)
-      setBalance(res.balance)
-      const list = await getTransactions()
-      setTransactions(list.transactions)
-      setIsSuccess(true)
-      setTimeout(() => {
-        setIsSuccess(false)
-        onSuccess?.()
-        onClose()
-      }, 900)
+      // 检查是否配置了 Stripe（通过环境变量判断）
+      const useStripe = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+      
+      if (useStripe) {
+        // 使用 Stripe 支付
+        const { url } = await createPaymentSession(selectedAmount)
+        if (url) {
+          // 跳转到 Stripe Checkout
+          window.location.href = url
+          return // 不关闭对话框，等待支付完成
+        } else {
+          throw new Error('無法創建支付會話')
+        }
+      } else {
+        // 模拟支付（开发环境）
+        const res = await apiTopup(selectedAmount)
+        setBalance(res.balance)
+        const list = await getTransactions()
+        setTransactions(list.transactions)
+        setIsSuccess(true)
+        setTimeout(() => {
+          setIsSuccess(false)
+          onSuccess?.()
+          onClose()
+        }, 900)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : '充值失敗')
       getSession().then((s) => s?.user && setBalance(s.user.balance)).catch(() => {})
-    } finally {
       setIsProcessing(false)
     }
   }
@@ -88,11 +103,13 @@ export function TopUpDialog({ isOpen, onClose, onSuccess }: TopUpDialogProps) {
                 </div>
               </div>
 
-              <div className="bg-muted/30 rounded-lg p-3 border border-border">
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  當前為產品設計階段，支付流程為模擬。未來將接入 Stripe / 第三方支付，所有真實支付都會在此彈窗中發起。
-                </p>
-              </div>
+              {!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY && (
+                <div className="bg-muted/30 rounded-lg p-3 border border-border">
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    當前為開發環境，支付流程為模擬。生產環境將使用 Stripe 支付。
+                  </p>
+                </div>
+              )}
 
               {error && <p className="text-xs text-destructive">{error}</p>}
 
@@ -110,7 +127,7 @@ export function TopUpDialog({ isOpen, onClose, onSuccess }: TopUpDialogProps) {
                   className="flex-1 h-10 rounded-lg"
                   disabled={isProcessing}
                 >
-                  {isProcessing ? '生成支付連結...' : '確認充值'}
+                  {isProcessing ? (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ? '跳轉支付...' : '生成支付連結...') : '確認充值'}
                 </Button>
               </div>
             </>
@@ -119,9 +136,9 @@ export function TopUpDialog({ isOpen, onClose, onSuccess }: TopUpDialogProps) {
               <div className="w-14 h-14 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
                 <span className="text-2xl">✓</span>
               </div>
-              <p className="text-sm font-medium text-foreground">充值成功（模擬）</p>
+              <p className="text-sm font-medium text-foreground">充值成功</p>
               <p className="text-xs text-muted-foreground">
-                你現在有 {balance} 能量。後續支付接入時，這裡會展示真實訂單狀態。
+                你現在有 {balance} 能量。
               </p>
             </div>
           )}

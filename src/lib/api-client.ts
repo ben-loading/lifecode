@@ -152,6 +152,16 @@ export async function topup(amount: number): Promise<{ balance: number }> {
   })
 }
 
+/**
+ * 创建 Stripe 支付会话
+ */
+export async function createPaymentSession(energy: number): Promise<{ sessionId: string; url: string | null }> {
+  return request<{ sessionId: string; url: string | null }>('/payment/create-session', {
+    method: 'POST',
+    body: JSON.stringify({ energy }),
+  })
+}
+
 export async function redeemCode(code: string): Promise<{ balance: number; amount: number }> {
   return request('/energy/redeem', {
     method: 'POST',
