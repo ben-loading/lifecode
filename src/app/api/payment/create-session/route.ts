@@ -31,6 +31,8 @@ export async function POST(request: Request) {
     const cancelUrl = `${origin}/payment/cancel`
 
     // 创建 Checkout Session
+    console.log(`[payment/create-session] 创建支付会话: userId=${userId}, energy=${energy}, amount=${amount}`)
+    
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -49,13 +51,17 @@ export async function POST(request: Request) {
       mode: 'payment',
       success_url: successUrl,
       cancel_url: cancelUrl,
-      client_reference_id: userId, // 用于在 webhook 中识别用户
+      client_reference_id: userId, // 用于在 webhook 中识别用户（备用）
       metadata: {
-        userId,
+        userId: userId, // 主要用户ID来源
         energy: energy.toString(),
         amount: amount.toString(),
       },
     })
+
+    console.log(`[payment/create-session] ✅ 支付会话创建成功: sessionId=${session.id}`)
+    console.log(`[payment/create-session] 会话 metadata:`, JSON.stringify(session.metadata, null, 2))
+    console.log(`[payment/create-session] 会话 client_reference_id: ${session.client_reference_id}`)
 
     return NextResponse.json({ sessionId: session.id, url: session.url })
   } catch (e) {

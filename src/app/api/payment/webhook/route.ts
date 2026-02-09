@@ -63,21 +63,47 @@ export async function POST(request: Request) {
 
       // 从 metadata 或 client_reference_id 中获取用户信息
       // 优先使用 metadata.userId，如果没有则使用 client_reference_id
-      const userId = session.metadata?.userId || session.client_reference_id
+      let userId = session.metadata?.userId || session.client_reference_id
       const energy = session.metadata?.energy ? parseInt(session.metadata.energy, 10) : null
       const amount = session.metadata?.amount ? parseFloat(session.metadata.amount) : null
 
-      console.log(`[payment/webhook] 提取的信息: userId=${userId}, energy=${energy}, amount=${amount}`)
+      console.log(`[payment/webhook] 📊 提取的信息:`)
+      console.log(`[payment/webhook]   - metadata.userId: ${session.metadata?.userId || 'N/A'}`)
+      console.log(`[payment/webhook]   - client_reference_id: ${session.client_reference_id || 'N/A'}`)
+      console.log(`[payment/webhook]   - 最终 userId: ${userId || 'N/A'}`)
+      console.log(`[payment/webhook]   - energy: ${energy || 'N/A'}`)
+      console.log(`[payment/webhook]   - amount: ${amount || 'N/A'}`)
       
-      // 如果没有 userId，尝试从 client_reference_id 获取
-      if (!userId && session.client_reference_id) {
-        console.log(`[payment/webhook] 使用 client_reference_id 作为 userId: ${session.client_reference_id}`)
+      // 验证必要信息
+      if (!userId) {
+        console.error('[payment/webhook] ❌ 缺少 userId:', {
+          metadata: session.metadata,
+          client_reference_id: session.client_reference_id,
+          sessionId
+        })
+        return NextResponse.json({ 
+          error: '缺少用户ID',
+          debug: {
+            hasMetadata: !!session.metadata,
+            hasClientReferenceId: !!session.client_reference_id,
+            metadata: session.metadata
+          }
+        }, { status: 400 })
       }
 
-      if (!userId || !energy || energy <= 0) {
-        console.error('[payment/webhook] 缺少必要的 metadata:', { userId, energy, sessionId })
-        return NextResponse.json({ error: '缺少必要的支付信息' }, { status: 400 })
+      if (!energy || energy <= 0) {
+        console.error('[payment/webhook] ❌ 缺少或无效的 energy:', { energy, sessionId })
+        return NextResponse.json({ error: '缺少或无效的能量值' }, { status: 400 })
       }
+
+      // 验证 userId 格式（应该是 UUID）
+      if (typeof userId !== 'string' || userId.trim().length === 0) {
+        console.error('[payment/webhook] ❌ userId 格式无效:', { userId, type: typeof userId })
+        return NextResponse.json({ error: '用户ID格式无效' }, { status: 400 })
+      }
+
+      userId = userId.trim() // 确保没有多余空格
+      console.log(`[payment/webhook] ✅ 验证通过: userId=${userId}, energy=${energy}`)
 
       // 幂等性检查：检查是否已经处理过这个支付会话
       // 只检查 sessionId，避免误判（用户可能多次充值相同金额）
@@ -95,13 +121,32 @@ export async function POST(request: Request) {
 
       // 验证用户是否存在
       console.log(`[payment/webhook] 🔍 开始验证用户: userId=${userId}`)
+      console.log(`[payment/webhook] 🔍 userId 类型: ${typeof userId}, 长度: ${userId.length}`)
+      
       const userBefore = await getUserById(userId)
       if (!userBefore) {
-        console.error(`[payment/webhook] 用户不存在: userId=${userId}`)
-        return NextResponse.json({ error: '用户不存在' }, { status: 404 })
+        console.error(`[payment/webhook] ❌ 用户不存在: userId=${userId}`)
+        console.error(`[payment/webhook] 尝试查询的用户ID详情:`, {
+          userId,
+          type: typeof userId,
+          length: userId.length,
+          trimmed: userId.trim(),
+          sessionId,
+          metadata: session.metadata,
+          client_reference_id: session.client_reference_id
+        })
+        return NextResponse.json({ 
+          error: '用户不存在',
+          userId,
+          sessionId,
+          debug: {
+            metadata: session.metadata,
+            client_reference_id: session.client_reference_id
+          }
+        }, { status: 404 })
       }
       const balanceBefore = userBefore.balance
-      console.log(`[payment/webhook] 用户当前余额: ${balanceBefore}`)
+      console.log(`[payment/webhook] ✅ 用户验证成功: userId=${userId}, email=${userBefore.email}, 当前余额=${balanceBefore}`)
 
       // 更新用户余额
       console.log(`[payment/webhook] 开始更新余额: userId=${userId}, energy=${energy}, 当前余额=${balanceBefore}`)
