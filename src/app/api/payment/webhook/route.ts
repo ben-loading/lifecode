@@ -7,6 +7,8 @@ import { updateUserBalance, createTransaction, getTransactionsByUserId, getUserB
 // 确保路由配置正确，允许 POST 请求
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+// 明确允许所有 HTTP 方法
+export const maxDuration = 30
 
 /**
  * GET /api/payment/webhook
