@@ -33,16 +33,16 @@ export const stripe = getStripe()
  * 可以根据实际需求调整价格策略
  */
 export const ENERGY_PRICE_MAP: Record<number, number> = {
-  200: 20,   // 200 能量 = HK$20
-  500: 38,   // 500 能量 = HK$38
-  1000: 68,  // 1000 能量 = HK$68
+  200: 25,   // 200 能量 = HK$25
+  400: 48,   // 400 能量 = HK$48
+  800: 92,   // 800 能量 = HK$92
 }
 
 /**
  * 根据能量数量获取价格（港币 HKD）
  */
 export function getPriceForEnergy(energy: number): number {
-  return ENERGY_PRICE_MAP[energy] || energy * 0.1 // 默认 HK$0.1/能量
+  return ENERGY_PRICE_MAP[energy] || energy * 0.125 // 默认 HK$0.125/能量
 }
 
 /**

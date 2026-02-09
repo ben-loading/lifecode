@@ -12,7 +12,14 @@ interface TopUpDialogProps {
   onSuccess?: () => void
 }
 
-const PRESET_AMOUNTS = [200, 500, 1000]
+const PRESET_AMOUNTS = [200, 400, 800]
+
+// 价格映射（与后端保持一致）
+const ENERGY_PRICES: Record<number, number> = {
+  200: 25,
+  400: 48,
+  800: 92,
+}
 
 export function TopUpDialog({ isOpen, onClose, onSuccess }: TopUpDialogProps) {
   const { balance, setBalance, setTransactions } = useAppContext()
@@ -67,7 +74,6 @@ export function TopUpDialog({ isOpen, onClose, onSuccess }: TopUpDialogProps) {
             <>
               <div className="text-center space-y-1">
                 <h2 className="text-lg font-medium text-foreground">充值能量</h2>
-                <p className="text-xs text-muted-foreground">未來會接入 Stripe / 支付服務</p>
               </div>
 
               <div className="space-y-3">
@@ -89,17 +95,28 @@ export function TopUpDialog({ isOpen, onClose, onSuccess }: TopUpDialogProps) {
                             : 'border-border text-foreground hover:bg-muted/60'
                         }`}
                       >
-                        {amount} 能量
+                        <div className="flex flex-col items-center">
+                          <span>{amount} 能量</span>
+                          <span className="text-[10px] opacity-90">HK${ENERGY_PRICES[amount]}</span>
+                        </div>
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-2">
-                  <span className="text-xs text-muted-foreground">充值後預計餘額</span>
-                  <span className="text-sm font-medium text-foreground">
-                    {balance + selectedAmount} 能量
-                  </span>
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">充值金額</span>
+                    <span className="text-sm font-medium text-foreground">
+                      HK${ENERGY_PRICES[selectedAmount]}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">充值後預計餘額</span>
+                    <span className="text-sm font-medium text-foreground">
+                      {balance + selectedAmount} 能量
+                    </span>
+                  </div>
                 </div>
               </div>
 
