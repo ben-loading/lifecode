@@ -1,1 +1,1 @@
-修复 webhook userId 获取逻辑：支持从 client_reference_id 获取，增强日志和错误处理
+修复 webhook 余额更新逻辑：添加更新结果验证，确保能量正确添加

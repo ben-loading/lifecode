@@ -5,35 +5,55 @@ import { stripe, verifyWebhookSignature } from '@/lib/stripe'
 import { updateUserBalance, createTransaction, getTransactionsByUserId, getUserById } from '@/lib/db'
 
 /**
+ * GET /api/payment/webhook
+ * 用于 Stripe Webhook 配置验证（可选）
+ */
+export async function GET() {
+  return NextResponse.json({ message: 'Stripe Webhook endpoint is active' })
+}
+
+/**
  * POST /api/payment/webhook
  * Stripe Webhook 处理
  * 处理支付成功事件，更新用户余额
  */
 export async function POST(request: Request) {
+  console.log('[payment/webhook] ========== Webhook 请求开始 ==========')
+  console.log('[payment/webhook] 请求时间:', new Date().toISOString())
+  
   const body = await request.text()
   const headersList = await headers()
   const signature = headersList.get('stripe-signature')
 
+  console.log('[payment/webhook] 请求体长度:', body.length)
+  console.log('[payment/webhook] 是否有签名:', !!signature)
+
   if (!signature) {
-    console.error('[payment/webhook] 缺少签名')
+    console.error('[payment/webhook] ❌ 缺少签名')
     return NextResponse.json({ error: '缺少签名' }, { status: 400 })
   }
 
   try {
     // 验证 webhook 签名
+    console.log('[payment/webhook] 开始验证签名...')
     const event = await verifyWebhookSignature(body, signature)
-    console.log(`[payment/webhook] 收到事件: ${event.type}, id: ${event.id}`)
+    console.log(`[payment/webhook] ✅ 签名验证成功`)
+    console.log(`[payment/webhook] 收到事件类型: ${event.type}`)
+    console.log(`[payment/webhook] 事件 ID: ${event.id}`)
+    console.log(`[payment/webhook] 事件创建时间: ${new Date(event.created * 1000).toISOString()}`)
 
     // 处理支付成功事件
     if (event.type === 'checkout.session.completed') {
+      console.log(`[payment/webhook] ========== 处理 checkout.session.completed 事件 ==========`)
       const session = event.data.object as Stripe.Checkout.Session
       const sessionId = session.id
 
-      console.log(`[payment/webhook] 支付会话完成: sessionId=${sessionId}`)
-      console.log(`[payment/webhook] 支付状态: ${session.payment_status}`)
-      console.log(`[payment/webhook] 支付金额: ${session.amount_total ? session.amount_total / 100 : 'N/A'} ${session.currency?.toUpperCase() || ''}`)
-      console.log(`[payment/webhook] Metadata:`, JSON.stringify(session.metadata, null, 2))
-      console.log(`[payment/webhook] Client reference ID: ${session.client_reference_id}`)
+      console.log(`[payment/webhook] 📋 支付会话 ID: ${sessionId}`)
+      console.log(`[payment/webhook] 💳 支付状态: ${session.payment_status}`)
+      console.log(`[payment/webhook] 💰 支付金额: ${session.amount_total ? session.amount_total / 100 : 'N/A'} ${session.currency?.toUpperCase() || ''}`)
+      console.log(`[payment/webhook] 📝 Metadata:`, JSON.stringify(session.metadata, null, 2))
+      console.log(`[payment/webhook] 🔑 Client reference ID: ${session.client_reference_id}`)
+      console.log(`[payment/webhook] 📧 Customer Email: ${session.customer_email || 'N/A'}`)
 
       // 检查支付状态
       if (session.payment_status !== 'paid') {
@@ -74,7 +94,7 @@ export async function POST(request: Request) {
       console.log(`[payment/webhook] 幂等性检查通过，准备处理支付: sessionId=${sessionId}`)
 
       // 验证用户是否存在
-      const { getUserById } = await import('@/lib/db')
+      console.log(`[payment/webhook] 🔍 开始验证用户: userId=${userId}`)
       const userBefore = await getUserById(userId)
       if (!userBefore) {
         console.error(`[payment/webhook] 用户不存在: userId=${userId}`)
@@ -126,10 +146,21 @@ export async function POST(request: Request) {
         // 这里选择继续，因为余额已经更新成功
       }
 
-      console.log(`[payment/webhook] 支付成功处理完成: userId=${userId}, energy=${energy}, sessionId=${sessionId}`)
+      console.log(`[payment/webhook] ✅ 支付成功处理完成: userId=${userId}, energy=${energy}, sessionId=${sessionId}`)
+      console.log(`[payment/webhook] ========== 事件处理完成 ==========`)
+      return NextResponse.json({ 
+        received: true, 
+        processed: true,
+        userId,
+        energy,
+        sessionId 
+      })
+    } else {
+      console.log(`[payment/webhook] ⚠️ 未处理的事件类型: ${event.type}`)
+      console.log(`[payment/webhook] ========== 跳过事件 ==========`)
     }
 
-    return NextResponse.json({ received: true })
+    return NextResponse.json({ received: true, processed: false })
   } catch (e) {
     console.error('[payment/webhook] 处理失败:', e)
     const errorMessage = e instanceof Error ? e.message : String(e)
