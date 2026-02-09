@@ -11,12 +11,45 @@ const DEEP_REPORT_DISPLAY_LABELS: Record<string, string> = {
   'love-marriage': '愛情姻緣',
 }
 
+/**
+ * 截断过长的订单ID（如 Stripe session ID）
+ * 格式：保留前8位和后8位，中间用省略号
+ */
+function truncateOrderId(orderId: string, maxLength: number = 20): string {
+  if (orderId.length <= maxLength) return orderId
+  const prefix = orderId.slice(0, 8)
+  const suffix = orderId.slice(-8)
+  return `${prefix}...${suffix}`
+}
+
 function formatTransactionDescription(description: string): string {
+  // 处理深度报告
   const prefix = '深度報告：'
-  if (!description.startsWith(prefix)) return description
-  const slug = description.slice(prefix.length)
-  const label = DEEP_REPORT_DISPLAY_LABELS[slug]
-  return label ? `${prefix}${label}` : description
+  if (description.startsWith(prefix)) {
+    const slug = description.slice(prefix.length)
+    const label = DEEP_REPORT_DISPLAY_LABELS[slug]
+    return label ? `${prefix}${label}` : description
+  }
+
+  // 处理 Stripe 充值描述：截断过长的 session ID
+  // 格式：Stripe 充值：400 能量（HK$48.00）[cs_test_...]
+  const stripePattern = /^Stripe 充值：(.+?)\s*（(.+?)）\s*\[(.+?)\]$/
+  const match = description.match(stripePattern)
+  if (match) {
+    const [, energy, amount, sessionId] = match
+    const truncatedSessionId = truncateOrderId(sessionId, 20)
+    return `Stripe 充值：${energy}（${amount}）[${truncatedSessionId}]`
+  }
+
+  // 处理其他包含长订单ID的情况（通用处理）
+  // 匹配 [...] 中的长字符串
+  const bracketPattern = /\[([^\]]{30,})\]/g
+  const formatted = description.replace(bracketPattern, (match, orderId) => {
+    const truncated = truncateOrderId(orderId, 20)
+    return `[${truncated}]`
+  })
+
+  return formatted
 }
 
 interface TransactionHistoryDialogProps {
@@ -58,12 +91,12 @@ export function TransactionHistoryDialog({
                 return (
                   <div
                     key={tx.id}
-                    className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border bg-background"
+                    className="flex items-start justify-between gap-2 px-3 py-2.5 rounded-lg border border-border bg-background"
                   >
-                    <div className="space-y-1">
+                    <div className="space-y-1 flex-1 min-w-0">
                       <div className="flex items-center gap-2 text-xs">
                         <span
-                          className={`px-1.5 py-0.5 rounded-full border text-[10px] ${
+                          className={`px-1.5 py-0.5 rounded-full border text-[10px] shrink-0 ${
                             tx.type === 'topup'
                               ? 'border-emerald-500 text-emerald-600'
                               : 'border-amber-600 text-amber-700'
@@ -71,15 +104,15 @@ export function TransactionHistoryDialog({
                         >
                           {label}
                         </span>
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-[11px] text-muted-foreground shrink-0">
                           {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
-                      <p className="text-xs text-foreground/80 leading-snug">
+                      <p className="text-xs text-foreground/80 leading-snug break-words">
                         {formatTransactionDescription(tx.description)}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <p
                         className={`text-sm font-medium ${
                           tx.type === 'topup' ? 'text-emerald-600' : 'text-amber-700'
