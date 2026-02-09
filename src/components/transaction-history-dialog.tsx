@@ -128,10 +128,6 @@ export function TransactionHistoryDialog({
               })
             )}
           </div>
-
-          <p className="text-[10px] text-muted-foreground text-center pt-1">
-            支付網關接入後，這裡將展示來自 Stripe / 第三方支付的真實訂單記錄。
-          </p>
         </div>
       </DialogContent>
     </Dialog>
