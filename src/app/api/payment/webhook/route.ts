@@ -4,6 +4,10 @@ import type Stripe from 'stripe'
 import { stripe, verifyWebhookSignature } from '@/lib/stripe'
 import { updateUserBalance, createTransaction, getTransactionsByUserId, getUserById } from '@/lib/db'
 
+// 确保路由配置正确，允许 POST 请求
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/payment/webhook
  * 用于 Stripe Webhook 配置验证（可选）
