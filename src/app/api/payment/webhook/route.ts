@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import type Stripe from 'stripe'
 import { stripe, verifyWebhookSignature } from '@/lib/stripe'
-import { updateUserBalance, createTransaction, getTransactionsByUserId } from '@/lib/db'
+import { updateUserBalance, createTransaction, getTransactionsByUserId, getUserById } from '@/lib/db'
 
 /**
  * POST /api/payment/webhook
@@ -73,14 +73,42 @@ export async function POST(request: Request) {
 
       console.log(`[payment/webhook] 幂等性检查通过，准备处理支付: sessionId=${sessionId}`)
 
+      // 验证用户是否存在
+      const { getUserById } = await import('@/lib/db')
+      const userBefore = await getUserById(userId)
+      if (!userBefore) {
+        console.error(`[payment/webhook] 用户不存在: userId=${userId}`)
+        return NextResponse.json({ error: '用户不存在' }, { status: 404 })
+      }
+      const balanceBefore = userBefore.balance
+      console.log(`[payment/webhook] 用户当前余额: ${balanceBefore}`)
+
       // 更新用户余额
-      console.log(`[payment/webhook] 开始更新余额: userId=${userId}, energy=${energy}`)
+      console.log(`[payment/webhook] 开始更新余额: userId=${userId}, energy=${energy}, 当前余额=${balanceBefore}`)
       try {
         await updateUserBalance(userId, energy)
-        console.log(`[payment/webhook] 余额更新成功: userId=${userId}, energy=${energy}`)
+        
+        // 验证余额是否真的更新了
+        const userAfter = await getUserById(userId)
+        const balanceAfter = userAfter?.balance || 0
+        console.log(`[payment/webhook] 余额更新后验证: 更新前=${balanceBefore}, 更新后=${balanceAfter}, 期望=${balanceBefore + energy}`)
+        
+        if (balanceAfter !== balanceBefore + energy) {
+          console.error(`[payment/webhook] 余额更新验证失败: 期望=${balanceBefore + energy}, 实际=${balanceAfter}`)
+          throw new Error(`余额更新验证失败: 期望=${balanceBefore + energy}, 实际=${balanceAfter}`)
+        }
+        
+        console.log(`[payment/webhook] 余额更新成功并验证通过: userId=${userId}, energy=${energy}, 新余额=${balanceAfter}`)
       } catch (balanceError) {
         console.error(`[payment/webhook] 余额更新失败:`, balanceError)
-        throw new Error(`余额更新失败: ${balanceError instanceof Error ? balanceError.message : String(balanceError)}`)
+        const errorDetails = balanceError instanceof Error ? balanceError.message : String(balanceError)
+        console.error(`[payment/webhook] 错误堆栈:`, balanceError instanceof Error ? balanceError.stack : 'N/A')
+        return NextResponse.json({ 
+          error: `余额更新失败: ${errorDetails}`,
+          userId,
+          energy,
+          balanceBefore 
+        }, { status: 500 })
       }
 
       // 创建交易记录（包含 sessionId 用于幂等性检查）

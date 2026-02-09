@@ -92,9 +92,32 @@ export async function createUser(params: { id?: string; email: string; name?: st
 
 export async function updateUserBalance(id: string, delta: number): Promise<void> {
   const client = getClient()
-  const { data } = await client.from('User').select('balance').eq('id', id).single()
-  if (!data) throw new Error('用户不存在')
-  await client.from('User').update({ balance: (data.balance as number) + delta, updatedAt: new Date().toISOString() }).eq('id', id)
+  const { data: userData, error: selectError } = await client.from('User').select('balance').eq('id', id).single()
+  if (selectError || !userData) {
+    throw new Error(`用户不存在或查询失败: ${selectError?.message || '未找到用户'}`)
+  }
+  
+  const oldBalance = userData.balance as number
+  const newBalance = oldBalance + delta
+  
+  const { data: updateData, error: updateError } = await client
+    .from('User')
+    .update({ balance: newBalance, updatedAt: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single()
+  
+  if (updateError || !updateData) {
+    throw new Error(`余额更新失败: ${updateError?.message || '更新操作未返回数据'}`)
+  }
+  
+  // 验证更新后的余额
+  const updatedBalance = updateData.balance as number
+  if (updatedBalance !== newBalance) {
+    throw new Error(`余额更新不一致: 期望 ${newBalance}, 实际 ${updatedBalance}`)
+  }
+  
+  console.log(`[db] 余额更新成功: userId=${id}, 旧余额=${oldBalance}, 增量=${delta}, 新余额=${updatedBalance}`)
 }
 
 export async function updateUserInviteRef(id: string, inviteRef: string): Promise<void> {
