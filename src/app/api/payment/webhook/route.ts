@@ -29,7 +29,11 @@ export async function POST(request: Request) {
       const session = event.data.object as Stripe.Checkout.Session
       const sessionId = session.id
 
-      console.log(`[payment/webhook] 支付会话完成: sessionId=${sessionId}, payment_status=${session.payment_status}`)
+      console.log(`[payment/webhook] 支付会话完成: sessionId=${sessionId}`)
+      console.log(`[payment/webhook] 支付状态: ${session.payment_status}`)
+      console.log(`[payment/webhook] 支付金额: ${session.amount_total ? session.amount_total / 100 : 'N/A'} ${session.currency?.toUpperCase() || ''}`)
+      console.log(`[payment/webhook] Metadata:`, JSON.stringify(session.metadata, null, 2))
+      console.log(`[payment/webhook] Client reference ID: ${session.client_reference_id}`)
 
       // 检查支付状态
       if (session.payment_status !== 'paid') {
@@ -37,12 +41,18 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true, message: '支付状态不是 paid，跳过处理' })
       }
 
-      // 从 metadata 中获取用户信息和能量数量
-      const userId = session.metadata?.userId
+      // 从 metadata 或 client_reference_id 中获取用户信息
+      // 优先使用 metadata.userId，如果没有则使用 client_reference_id
+      const userId = session.metadata?.userId || session.client_reference_id
       const energy = session.metadata?.energy ? parseInt(session.metadata.energy, 10) : null
       const amount = session.metadata?.amount ? parseFloat(session.metadata.amount) : null
 
-      console.log(`[payment/webhook] Metadata: userId=${userId}, energy=${energy}, amount=${amount}`)
+      console.log(`[payment/webhook] 提取的信息: userId=${userId}, energy=${energy}, amount=${amount}`)
+      
+      // 如果没有 userId，尝试从 client_reference_id 获取
+      if (!userId && session.client_reference_id) {
+        console.log(`[payment/webhook] 使用 client_reference_id 作为 userId: ${session.client_reference_id}`)
+      }
 
       if (!userId || !energy || energy <= 0) {
         console.error('[payment/webhook] 缺少必要的 metadata:', { userId, energy, sessionId })
@@ -50,10 +60,10 @@ export async function POST(request: Request) {
       }
 
       // 幂等性检查：检查是否已经处理过这个支付会话
-      // 通过检查交易记录中是否已有相同 sessionId 的交易
+      // 只检查 sessionId，避免误判（用户可能多次充值相同金额）
       const recentTransactions = await getTransactionsByUserId(userId)
       const existingTransaction = recentTransactions.find(
-        (tx) => tx.description.includes(sessionId) || tx.description.includes(`Stripe 充值：${energy} 能量`)
+        (tx) => tx.description.includes(`[${sessionId}]`)
       )
 
       if (existingTransaction) {
@@ -61,17 +71,32 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true, message: '支付会话已处理过' })
       }
 
+      console.log(`[payment/webhook] 幂等性检查通过，准备处理支付: sessionId=${sessionId}`)
+
       // 更新用户余额
       console.log(`[payment/webhook] 开始更新余额: userId=${userId}, energy=${energy}`)
-      await updateUserBalance(userId, energy)
-      console.log(`[payment/webhook] 余额更新成功: userId=${userId}, energy=${energy}`)
+      try {
+        await updateUserBalance(userId, energy)
+        console.log(`[payment/webhook] 余额更新成功: userId=${userId}, energy=${energy}`)
+      } catch (balanceError) {
+        console.error(`[payment/webhook] 余额更新失败:`, balanceError)
+        throw new Error(`余额更新失败: ${balanceError instanceof Error ? balanceError.message : String(balanceError)}`)
+      }
 
       // 创建交易记录（包含 sessionId 用于幂等性检查）
-      await createTransaction(userId, {
-        type: 'topup',
-        amount: energy,
-        description: `Stripe 充值：${energy} 能量（HK$${amount?.toFixed(2) || 'N/A'}）[${sessionId}]`,
-      })
+      try {
+        await createTransaction(userId, {
+          type: 'topup',
+          amount: energy,
+          description: `Stripe 充值：${energy} 能量（HK$${amount?.toFixed(2) || 'N/A'}）[${sessionId}]`,
+        })
+        console.log(`[payment/webhook] 交易记录创建成功: userId=${userId}, energy=${energy}`)
+      } catch (txError) {
+        console.error(`[payment/webhook] 交易记录创建失败:`, txError)
+        // 交易记录创建失败不影响余额更新，但记录错误
+        // 注意：如果余额已更新但交易记录未创建，可能导致重复充值
+        // 这里选择继续，因为余额已经更新成功
+      }
 
       console.log(`[payment/webhook] 支付成功处理完成: userId=${userId}, energy=${energy}, sessionId=${sessionId}`)
     }

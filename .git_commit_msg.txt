@@ -1,1 +1,1 @@
-修复 payment/success 页面预渲染错误：使用 Suspense 包装 useSearchParams
+修复 Stripe webhook 能量充值问题并更新充值档位：200能量=HK5, 400能量=HK8, 800能量=HK2
