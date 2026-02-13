@@ -1,0 +1,43 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    @media (prefers-color-scheme: light) {
+      .background { fill: black; }
+      .foreground { fill: white; }
+    }
+    @media (prefers-color-scheme: dark) {
+      .background { fill: white; }
+      .foreground { fill: black; }
+    }
+  </style>
+  <g clip-path="url(#clip0_lifecode)">
+    <rect class="background" width="180" height="180" rx="37" />
+    <!-- 人生 - 简洁现代的汉字设计，使用几何化的"人"字 -->
+    <g transform="translate(90, 90)">
+      <!-- 人字的左撇 -->
+      <path 
+        class="foreground" 
+        d="M -35 -25 L -20 35" 
+        stroke="currentColor" 
+        stroke-width="14" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        fill="none"
+      />
+      <!-- 人字的右捺 -->
+      <path 
+        class="foreground" 
+        d="M -20 35 L 35 -25" 
+        stroke="currentColor" 
+        stroke-width="14" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        fill="none"
+      />
+    </g>
+  </g>
+  <defs>
+    <clipPath id="clip0_lifecode">
+      <rect width="180" height="180" fill="white" />
+    </clipPath>
+  </defs>
+</svg>
