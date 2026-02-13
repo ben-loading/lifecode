@@ -124,6 +124,14 @@ export async function POST(request: Request) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('[report/deep/generate]', e)
+    // 数据库表不存在错误，返回更详细的错误信息
+    if (e instanceof Error && (msg.includes('DeepReportJob') || msg.includes('relation') || msg.includes('不存在') || msg.includes('does not exist'))) {
+      console.error('[report/deep/generate] 数据库表不存在错误:', msg)
+      return NextResponse.json(
+        { error: `数据库结构错误: ${msg}。请检查 DeepReportJob 表是否存在。` },
+        { status: 500 }
+      )
+    }
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

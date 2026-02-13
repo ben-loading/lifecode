@@ -18,26 +18,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: '人生解码 - LifeCode',
-  description: '解读命运密码，探索人生轨迹',
+  title: '人生解碼 - LifeCode',
+  description: '解讀命運密碼，探索人生軌跡',
   generator: 'v0.app',
-  icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
-  },
 }
 
 export default function RootLayout({
