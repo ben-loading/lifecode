@@ -91,6 +91,14 @@ export async function GET(request: Request) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error('[auth/session]', e)
+    // 数据库错误，返回更详细的错误信息
+    if (e instanceof Error && (msg.includes('relation') || msg.includes('不存在') || msg.includes('does not exist'))) {
+      console.error('[auth/session] 数据库表不存在错误:', msg)
+      return sessionError(
+        `数据库结构错误: ${msg}。请检查 Session 和 VerificationCode 表是否存在。`,
+        500
+      )
+    }
     return sessionError(msg)
   }
 }

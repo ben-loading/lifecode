@@ -38,12 +38,18 @@ CREATE TABLE IF NOT EXISTS "Archive" (
   "lunarDate" TEXT,          -- 农历日期 YYYY-M-D
   "isLeapMonth" BOOLEAN,     -- 是否闰月
   
+  -- 标准化字段（用于同命盘报告复用）
+  normalized_birth_date DATE,        -- 标准化后的公历日期 YYYY-MM-DD
+  normalized_time_index INTEGER,    -- 标准化后的时辰序号 0-12
+  
   CONSTRAINT "Archive_userId_fkey" FOREIGN KEY ("userId") 
     REFERENCES "User"(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS "Archive_userId_idx" ON "Archive"("userId");
 CREATE INDEX IF NOT EXISTS "Archive_createdAt_idx" ON "Archive"("createdAt");
+CREATE INDEX IF NOT EXISTS "idx_archive_normalized_birth" 
+  ON "Archive"(gender, normalized_birth_date, normalized_time_index);
 
 -- ==================== 主报告表 ====================
 CREATE TABLE IF NOT EXISTS "MainReport" (
@@ -119,10 +125,32 @@ CREATE TABLE IF NOT EXISTS "RedemptionCode" (
   amount INTEGER NOT NULL,
   "usedBy" TEXT,
   "usedAt" TIMESTAMP(3),
-  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  note TEXT
 );
 
 CREATE INDEX IF NOT EXISTS "RedemptionCode_usedBy_idx" ON "RedemptionCode"("usedBy");
+
+-- ==================== 会话表 ====================
+CREATE TABLE IF NOT EXISTS "Session" (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  token TEXT UNIQUE NOT NULL,
+  "userId" TEXT NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "expiresAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") 
+    REFERENCES "User"(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS "Session_token_idx" ON "Session"(token);
+CREATE INDEX IF NOT EXISTS "Session_userId_idx" ON "Session"("userId");
+
+-- ==================== 验证码表 ====================
+CREATE TABLE IF NOT EXISTS "VerificationCode" (
+  email TEXT PRIMARY KEY,
+  code TEXT NOT NULL,
+  "expiresAt" BIGINT NOT NULL
+);
 
 -- ==================== 报告生成任务表 ====================
 CREATE TABLE IF NOT EXISTS "ReportJob" (
@@ -141,6 +169,28 @@ CREATE TABLE IF NOT EXISTS "ReportJob" (
 CREATE INDEX IF NOT EXISTS "ReportJob_archiveId_idx" ON "ReportJob"("archiveId");
 CREATE INDEX IF NOT EXISTS "ReportJob_status_idx" ON "ReportJob"(status);
 CREATE INDEX IF NOT EXISTS "ReportJob_createdAt_idx" ON "ReportJob"("createdAt");
+
+-- ==================== 深度报告生成任务表 ====================
+CREATE TABLE IF NOT EXISTS "DeepReportJob" (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  "archiveId" TEXT NOT NULL,
+  "reportType" TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  "currentStep" INTEGER,
+  "totalSteps" INTEGER,
+  "stepLabel" TEXT,
+  error TEXT,
+  "completedAt" TIMESTAMP(3),
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "DeepReportJob_archiveId_fkey" FOREIGN KEY ("archiveId")
+    REFERENCES "Archive"(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS "DeepReportJob_archiveId_idx" ON "DeepReportJob"("archiveId");
+CREATE INDEX IF NOT EXISTS "DeepReportJob_reportType_idx" ON "DeepReportJob"("reportType");
+CREATE INDEX IF NOT EXISTS "DeepReportJob_status_idx" ON "DeepReportJob"(status);
+CREATE INDEX IF NOT EXISTS "DeepReportJob_createdAt_idx" ON "DeepReportJob"("createdAt");
 
 -- ==================== 初始数据 ====================
 -- 插入测试兑换码
