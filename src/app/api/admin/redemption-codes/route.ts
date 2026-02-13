@@ -29,8 +29,18 @@ export async function POST(request: Request) {
     return NextResponse.json(result)
   } catch (e) {
     console.error('[admin/redemption-codes POST]', e)
-    if (e instanceof Error && e.message.includes('管理员')) {
-      return NextResponse.json({ error: e.message }, { status: 403 })
+    if (e instanceof Error) {
+      if (e.message.includes('管理员')) {
+        return NextResponse.json({ error: e.message }, { status: 403 })
+      }
+      // 数据库错误，返回更详细的错误信息
+      if (e.message.includes('column') || e.message.includes('relation') || e.message.includes('不存在')) {
+        console.error('[admin/redemption-codes POST] 数据库结构错误:', e.message)
+        return NextResponse.json(
+          { error: `数据库结构错误: ${e.message}。请检查 RedemptionCode 表是否包含 note 字段。` },
+          { status: 500 }
+        )
+      }
     }
     return serverError()
   }
@@ -59,8 +69,18 @@ export async function GET(request: Request) {
     return NextResponse.json(result)
   } catch (e) {
     console.error('[admin/redemption-codes GET]', e)
-    if (e instanceof Error && e.message.includes('管理员')) {
-      return NextResponse.json({ error: e.message }, { status: 403 })
+    if (e instanceof Error) {
+      if (e.message.includes('管理员')) {
+        return NextResponse.json({ error: e.message }, { status: 403 })
+      }
+      // 数据库错误，返回更详细的错误信息
+      if (e.message.includes('column') || e.message.includes('relation') || e.message.includes('不存在')) {
+        console.error('[admin/redemption-codes GET] 数据库结构错误:', e.message)
+        return NextResponse.json(
+          { error: `数据库结构错误: ${e.message}。请检查 RedemptionCode 表是否包含 note 字段。` },
+          { status: 500 }
+        )
+      }
     }
     return serverError()
   }

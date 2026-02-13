@@ -18,8 +18,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: '人生解码 - LifeCode',
-  description: '解读命运密码，探索人生轨迹',
+  title: '人生解碼 - LifeCode',
+  description: '解讀命運密碼，探索人生軌跡',
   generator: 'v0.app',
   icons: {
     icon: [
