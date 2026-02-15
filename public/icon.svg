@@ -1,43 +1,31 @@
 <svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <style>
-    @media (prefers-color-scheme: light) {
-      .background { fill: black; }
-      .foreground { fill: white; }
-    }
-    @media (prefers-color-scheme: dark) {
-      .background { fill: white; }
-      .foreground { fill: black; }
-    }
-  </style>
-  <g clip-path="url(#clip0_lifecode)">
-    <rect class="background" width="180" height="180" rx="37" />
-    <!-- 人生 - 简洁现代的汉字设计，使用几何化的"人"字 -->
-    <g transform="translate(90, 90)">
-      <!-- 人字的左撇 -->
-      <path 
-        class="foreground" 
-        d="M -35 -25 L -20 35" 
-        stroke="currentColor" 
-        stroke-width="14" 
-        stroke-linecap="round" 
-        stroke-linejoin="round"
-        fill="none"
-      />
-      <!-- 人字的右捺 -->
-      <path 
-        class="foreground" 
-        d="M -20 35 L 35 -25" 
-        stroke="currentColor" 
-        stroke-width="14" 
-        stroke-linecap="round" 
-        stroke-linejoin="round"
-        fill="none"
-      />
-    </g>
-  </g>
   <defs>
-    <clipPath id="clip0_lifecode">
-      <rect width="180" height="180" fill="white" />
-    </clipPath>
+    <!-- 淡米色背景，带有微妙的黄橙色调 -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F5F1E8;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#F0EBE0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#EBE5D8;stop-opacity:1" />
+    </linearGradient>
   </defs>
+  
+  <!-- 圆角矩形背景 -->
+  <rect width="180" height="180" rx="37" fill="url(#bgGradient)" />
+  
+  <!-- 繁体中文"人生解码"文字 - 使用端正正式的字体风格 -->
+  <g transform="translate(90, 90)">
+    <text 
+      x="0" 
+      y="0" 
+      font-family="'STSong', 'SimSun', '宋体', 'MingLiU', '新細明體', 'Noto Serif SC', 'PingFang TC', serif" 
+      font-size="36" 
+      font-weight="500" 
+      fill="#B85C38" 
+      text-anchor="middle" 
+      dominant-baseline="central"
+      letter-spacing="2.5"
+      style="font-variant-east-asian: traditional; font-style: normal;"
+    >
+      人生解碼
+    </text>
+  </g>
 </svg>

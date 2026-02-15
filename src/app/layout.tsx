@@ -21,6 +21,20 @@ export const metadata: Metadata = {
   title: '人生解碼 - LifeCode',
   description: '解讀命運密碼，探索人生軌跡',
   generator: 'v0.app',
+  icons: {
+    icon: '/icon.svg',
+    apple: '/apple-icon.png',
+  },
+  openGraph: {
+    title: '人生解碼 - LifeCode',
+    description: '解讀命運密碼，探索人生軌跡',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: '人生解碼 - LifeCode',
+    description: '解讀命運密碼，探索人生軌跡',
+  },
 }
 
 export default function RootLayout({

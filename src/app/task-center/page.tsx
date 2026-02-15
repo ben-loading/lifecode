@@ -10,7 +10,7 @@ import { Separator } from '@/components/ui/separator'
 import { redeemCode as apiRedeemCode, getTransactions } from '@/lib/api-client'
 import { useLanguage } from '@/lib/context-language'
 
-const DISCORD_INVITE_URL = 'https://discord.gg/your-server' // 可后续改为真实 Discord 邀请链接
+const DISCORD_INVITE_URL = 'https://discord.gg/lifelabs'
 
 export default function TaskCenterPage() {
   const router = useRouter()

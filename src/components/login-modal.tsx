@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { TermsDialog } from '@/components/terms-dialog'
+import { ServiceTermsDialog } from '@/components/service-terms-dialog'
 import { useAppContext } from '@/lib/context'
 import { getSupabaseClient } from '@/lib/supabase/client'
 import { setToken, flushPendingInviteRef, getTransactions } from '@/lib/api-client'
@@ -28,6 +31,10 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
   const [countdown, setCountdown] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [agreeTerms, setAgreeTerms] = useState(false)
+  const [showTermsDialog, setShowTermsDialog] = useState(false)
+  const [showPrivacyDialog, setShowPrivacyDialog] = useState(false)
+  const [showServiceTermsDialog, setShowServiceTermsDialog] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
@@ -35,6 +42,13 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
       const keySet = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
       console.log('[lifecode] SUPABASE_URL:', url || '(未设置)')
       console.log('[lifecode] SUPABASE_ANON_KEY:', keySet ? '已设置' : '未设置')
+    } else {
+      // 關閉時重置狀態
+      setAgreeTerms(false)
+      setEmail('')
+      setCode('')
+      setCodeSent(false)
+      setError('')
     }
   }, [isOpen])
 
@@ -73,6 +87,10 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
     }
     if (code.trim().length !== 6) {
       setError('請輸入6位數字驗證碼')
+      return
+    }
+    if (!agreeTerms) {
+      setError('請先閱讀並同意用戶協議和數據協議')
       return
     }
     setError('')
@@ -148,7 +166,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
                   if (error === '請輸入有效的郵箱地址') setError('')
                 }}
                 placeholder="your@email.com"
-                className="w-full min-w-0 px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary box-border"
+                className="w-full min-w-0 px-3 py-2 border border-border rounded-lg bg-background outline-none box-border"
               />
               {email.trim() && !isValidEmail(email.trim()) && (
                 <p className="text-xs text-destructive mt-1">請輸入有效的郵箱地址</p>
@@ -168,7 +186,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
                   onChange={(e) => setCode(/^\d*$/.test(e.target.value) ? e.target.value : code)}
                   placeholder={codeSent ? '請輸入6位驗證碼' : '請先發送驗證碼'}
                   disabled={!codeSent}
-                  className="w-full min-w-0 flex-1 px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed box-border"
+                  className="w-full min-w-0 flex-1 px-3 py-2 border border-border rounded-lg bg-background outline-none disabled:opacity-50 disabled:cursor-not-allowed box-border"
                 />
                 <button
                   onClick={handleSendCode}
@@ -179,17 +197,79 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
                 </button>
               </div>
             </div>
+
+            {/* 協議勾選框 */}
+            <div className="min-w-0">
+              <label className="flex items-start gap-2 cursor-pointer group">
+                <Checkbox
+                  checked={agreeTerms}
+                  onCheckedChange={(checked) => setAgreeTerms(checked === true)}
+                  className="mt-0.5"
+                />
+                <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors flex-1 leading-relaxed">
+                  我已閱讀並同意
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowTermsDialog(true)
+                    }}
+                    className="text-primary hover:underline mx-1"
+                  >
+                    用戶協議
+                  </button>
+                  、
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowPrivacyDialog(true)
+                    }}
+                    className="text-primary hover:underline mx-1"
+                  >
+                    數據協議
+                  </button>
+                  和
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowServiceTermsDialog(true)
+                    }}
+                    className="text-primary hover:underline mx-1"
+                  >
+                    服務協議
+                  </button>
+                </span>
+              </label>
+            </div>
           </div>
           {error && <p className="text-xs text-destructive break-words">{error}</p>}
           <Button
             onClick={handleSubmit}
             className="w-full min-w-0 h-11 rounded-lg"
-            disabled={!email.trim() || !isValidEmail(email.trim()) || code.trim().length !== 6 || loading}
+            disabled={!email.trim() || !isValidEmail(email.trim()) || code.trim().length !== 6 || !agreeTerms || loading}
           >
             {loading ? '登錄中...' : '登 錄'}
           </Button>
         </div>
       </DialogContent>
+
+      {/* 協議彈窗 */}
+      <TermsDialog
+        isOpen={showTermsDialog}
+        onClose={() => setShowTermsDialog(false)}
+        type="terms"
+      />
+      <TermsDialog
+        isOpen={showPrivacyDialog}
+        onClose={() => setShowPrivacyDialog(false)}
+        type="privacy"
+      />
+      <ServiceTermsDialog
+        isOpen={showServiceTermsDialog}
+        onClose={() => setShowServiceTermsDialog(false)}
+      />
     </Dialog>
   )
 }

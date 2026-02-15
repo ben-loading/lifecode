@@ -11,6 +11,8 @@ import { getSupabaseClient } from '@/lib/supabase/client'
 import type { ApiArchive } from '@/lib/types/api'
 import { TopUpDialog } from '@/components/topup-dialog'
 import { TransactionHistoryDialog } from '@/components/transaction-history-dialog'
+import { TermsDialog } from '@/components/terms-dialog'
+import { ServiceTermsDialog } from '@/components/service-terms-dialog'
 import { toast } from 'sonner'
 
 interface SideMenuProps {
@@ -25,6 +27,9 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
   const { user, setUser, balance } = useAppContext()
   const [showTopUp, setShowTopUp] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
+  const [showTermsDialog, setShowTermsDialog] = useState(false)
+  const [showPrivacyDialog, setShowPrivacyDialog] = useState(false)
+  const [showServiceTermsDialog, setShowServiceTermsDialog] = useState(false)
   const [archiveList, setArchiveList] = useState<ApiArchive[]>([])
   const [archiveListLoading, setArchiveListLoading] = useState(false)
 
@@ -176,7 +181,7 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
           </button>
           <button
             onClick={() => {
-              window.open('https://discord.gg/your-server', '_blank')
+              window.open('https://discord.gg/lifelabs', '_blank')
               onClose()
             }}
             className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
@@ -184,7 +189,10 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
             Discord 社群
           </button>
           <button
-            type="button"
+            onClick={() => {
+              window.open('https://discord.gg/lifelabs', '_blank')
+              onClose()
+            }}
             className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
           >
             聯繫客服
@@ -229,6 +237,30 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
               <LogOut className="w-3.5 h-3.5" />
               退出登錄
             </button>
+
+            {/* 協議入口 - 用戶卡片底部 */}
+            <div className="pt-2 flex items-center justify-center gap-2 text-[10px] text-muted-foreground/60 flex-wrap">
+              <button
+                onClick={() => setShowTermsDialog(true)}
+                className="hover:text-muted-foreground transition-colors"
+              >
+                用戶協議
+              </button>
+              <span className="text-muted-foreground/40">·</span>
+              <button
+                onClick={() => setShowPrivacyDialog(true)}
+                className="hover:text-muted-foreground transition-colors"
+              >
+                數據協議
+              </button>
+              <span className="text-muted-foreground/40">·</span>
+              <button
+                onClick={() => setShowServiceTermsDialog(true)}
+                className="hover:text-muted-foreground transition-colors"
+              >
+                服務協議
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -238,6 +270,20 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
       <TransactionHistoryDialog
         isOpen={showHistory}
         onClose={() => setShowHistory(false)}
+      />
+      <TermsDialog
+        isOpen={showTermsDialog}
+        onClose={() => setShowTermsDialog(false)}
+        type="terms"
+      />
+      <TermsDialog
+        isOpen={showPrivacyDialog}
+        onClose={() => setShowPrivacyDialog(false)}
+        type="privacy"
+      />
+      <ServiceTermsDialog
+        isOpen={showServiceTermsDialog}
+        onClose={() => setShowServiceTermsDialog(false)}
       />
     </>
   )
