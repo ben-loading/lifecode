@@ -130,6 +130,13 @@ export function TopUpDialog({ isOpen, onClose, onSuccess }: TopUpDialogProps) {
 
               {error && <p className="text-xs text-destructive">{error}</p>}
 
+              {/* 虛擬服務提示 */}
+              <div className="pt-2 border-t border-border">
+                <p className="text-[10px] text-muted-foreground leading-relaxed text-center">
+                  本服務為虛擬數字服務，能量為虛擬商品，僅能在本產品中用於報告分析、解讀等服務用途。一旦充值成功，恕不退款。請根據實際需求謹慎合理消費。
+                </p>
+              </div>
+
               <div className="flex gap-2">
                 <Button
                   variant="outline"
