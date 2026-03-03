@@ -1,6 +1,6 @@
 # LifeCode 开发进度
 
-**最后同步**：2026-02-06（基于最新 Git 状态修正）
+**最后同步**：2026-02-06（安全修复、原子任务与并发压测已补充）
 
 ---
 
@@ -130,6 +130,27 @@
 ### 2026-02-06
 - 根据最新 Git 状态与产品现状**修正本进度文档**：主报告/深度报告重新生成已有、四类深度报告已完成、数据层为 Supabase。
 - 待办任务更新为当前**待优化项 1–9**与**剩余开发项**（兑换码后台 / 真人 1V1 / AI 解惑及版本归属）。
+- 完成一轮支付与接口安全加固（问题发现与修复已登记）：
+  - 生产封禁高风险调试接口：`/api/debug/*`、`/api/payment/webhook/debug`
+  - 生产禁用 `/api/energy/topup` 直充路径，避免绕过支付加能量
+  - `updateUserBalance` 升级为乐观锁重试 + 负余额保护；`redeemCode` 改为条件原子更新
+  - Stripe webhook 幂等升级为数据库唯一键级（新增 `PaymentEvent` 表与处理状态流转）
+  - webhook 错误返回脱敏，统一错误码，避免暴露内部实现细节
+  - 外链 `window.open` 统一添加 `noopener,noreferrer`
+  - 新增迁移与文档：
+    - `supabase/migrations/007_payment_event_idempotency.sql`
+    - `supabase/migrations/008_atomic_report_job_start.sql`
+    - `docs/Stripe-Webhook-回归测试清单.md`
+    - `docs/Stripe-Webhook-上线前一键验收模板.md`
+    - `scripts/test-report-concurrency.ts`
+- 报告生成链路完成原子化改造：
+  - 主报告与深度报告改为数据库函数原子启动（扣费 + 交易 + 建任务同事务）
+  - 修复并发场景下重复扣费/任务竞态风险
+- 鉴权链路增强：
+  - `getUserIdFromRequest` 首次建用户新增并发冲突兜底（失败后重查）
+- 新增并发压测能力（可接入 CI）：
+  - `npm run test:report-concurrency`
+  - 支持 `STRICT=true` 下阈值超限自动返回非 0 退出码
 
 ### 2026-01-31
 - 主报告生成系统完整实现（类型、Prompt、服务层、API）；前端 13 个 Section 适配；报告页空状态与分析中逻辑。

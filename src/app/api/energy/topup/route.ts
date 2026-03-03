@@ -4,6 +4,10 @@ import { getUserById, updateUserBalance, createTransaction } from '@/lib/db'
 import { parseJsonBody, badRequest, unauthorized, serverError } from '@/lib/api-utils'
 
 export async function POST(request: Request) {
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json({ error: '該接口僅限開發環境使用' }, { status: 403 })
+  }
+
   try {
     const userId = await getUserIdFromRequest(request)
     if (!userId) return unauthorized()

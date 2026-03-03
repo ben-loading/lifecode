@@ -181,7 +181,7 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
           </button>
           <button
             onClick={() => {
-              window.open('https://discord.gg/lifelabs', '_blank')
+              window.open('https://discord.gg/lifelabs', '_blank', 'noopener,noreferrer')
               onClose()
             }}
             className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
@@ -190,7 +190,7 @@ export function SideMenu({ isOpen, onClose, archiveName, userEmail }: SideMenuPr
           </button>
           <button
             onClick={() => {
-              window.open('https://discord.gg/lifelabs', '_blank')
+              window.open('https://discord.gg/lifelabs', '_blank', 'noopener,noreferrer')
               onClose()
             }}
             className="w-full text-left px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"

@@ -4,8 +4,6 @@ import {
   getArchiveById,
   getUserById,
   updateUserBalance,
-  createTransaction,
-  createReportJob,
   updateReportJob,
   getReportJobById,
   hasReportJobForArchive,
@@ -13,6 +11,7 @@ import {
   getInvitesByInvitee,
   setInviteValid,
   getValidInviteCount,
+  startMainReportJobAtomic,
 } from '@/lib/db'
 import { parseJsonBody, badRequest, unauthorized } from '@/lib/api-utils'
 import { MAIN_REPORT_COST } from '@/lib/costs'
@@ -128,16 +127,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: msg }, { status: 503 })
     }
 
-    if (!isRetry) {
-      await updateUserBalance(userId, -MAIN_REPORT_COST)
-      await createTransaction(userId, {
-        type: 'consume',
-        amount: MAIN_REPORT_COST,
-        description: '主報告生成',
-      })
+    const started = await startMainReportJobAtomic({
+      userId,
+      archiveId,
+      cost: MAIN_REPORT_COST,
+      stepLabel: STEPS[0],
+      charge: !isRetry,
+    })
+    if (started.result === 'JOB_ALREADY_RUNNING') {
+      return NextResponse.json(
+        { error: '該檔案已有生成任務進行中，請稍後再試', code: 'JOB_ALREADY_RUNNING' },
+        { status: 409 }
+      )
+    }
+    if (started.result === 'INSUFFICIENT_BALANCE') {
+      return NextResponse.json({ message: '不足能量要充值', error: 'INSUFFICIENT_BALANCE' }, { status: 402 })
+    }
+    if (started.result === 'USER_NOT_FOUND') {
+      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
+    }
+    if (!started.jobId) {
+      return NextResponse.json({ error: '任務創建失敗' }, { status: 500 })
     }
 
-    const jobId = await createReportJob(archiveId, 'running', STEPS[0])
+    const jobId = started.jobId
     await runReportJobInRequest(jobId, archiveId)
     return NextResponse.json({ jobId })
   } catch (e) {

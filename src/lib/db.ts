@@ -92,32 +92,49 @@ export async function createUser(params: { id?: string; email: string; name?: st
 
 export async function updateUserBalance(id: string, delta: number): Promise<void> {
   const client = getClient()
-  const { data: userData, error: selectError } = await client.from('User').select('balance').eq('id', id).single()
-  if (selectError || !userData) {
-    throw new Error(`用户不存在或查询失败: ${selectError?.message || '未找到用户'}`)
+  const MAX_RETRIES = 5
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const { data: userData, error: selectError } = await client
+      .from('User')
+      .select('balance')
+      .eq('id', id)
+      .single()
+    if (selectError || !userData) {
+      throw new Error(`用户不存在或查询失败: ${selectError?.message || '未找到用户'}`)
+    }
+
+    const oldBalance = Number(userData.balance ?? 0)
+    const newBalance = oldBalance + delta
+    if (newBalance < 0) {
+      throw new Error(`余额不足: 当前 ${oldBalance}, 变动 ${delta}`)
+    }
+
+    // 乐观锁更新：只有 balance 仍是读取值时才更新成功，避免并发覆盖
+    const { data: updateData, error: updateError } = await client
+      .from('User')
+      .update({ balance: newBalance, updatedAt: new Date().toISOString() })
+      .eq('id', id)
+      .eq('balance', oldBalance)
+      .select('balance')
+
+    if (updateError) {
+      throw new Error(`余额更新失败: ${updateError.message}`)
+    }
+
+    if ((updateData ?? []).length === 1) {
+      const updatedBalance = Number(updateData?.[0]?.balance ?? 0)
+      if (updatedBalance !== newBalance) {
+        throw new Error(`余额更新不一致: 期望 ${newBalance}, 实际 ${updatedBalance}`)
+      }
+      console.log(
+        `[db] 余额更新成功: userId=${id}, 旧余额=${oldBalance}, 增量=${delta}, 新余额=${updatedBalance}, attempt=${attempt}`
+      )
+      return
+    }
   }
-  
-  const oldBalance = userData.balance as number
-  const newBalance = oldBalance + delta
-  
-  const { data: updateData, error: updateError } = await client
-    .from('User')
-    .update({ balance: newBalance, updatedAt: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single()
-  
-  if (updateError || !updateData) {
-    throw new Error(`余额更新失败: ${updateError?.message || '更新操作未返回数据'}`)
-  }
-  
-  // 验证更新后的余额
-  const updatedBalance = updateData.balance as number
-  if (updatedBalance !== newBalance) {
-    throw new Error(`余额更新不一致: 期望 ${newBalance}, 实际 ${updatedBalance}`)
-  }
-  
-  console.log(`[db] 余额更新成功: userId=${id}, 旧余额=${oldBalance}, 增量=${delta}, 新余额=${updatedBalance}`)
+
+  throw new Error('余额更新冲突过多，请重试')
 }
 
 export async function updateUserInviteRef(id: string, inviteRef: string): Promise<void> {
@@ -340,6 +357,31 @@ export async function createReportJob(archiveId: string, status: string, stepLab
   return (data?.id as string) ?? id
 }
 
+export async function startMainReportJobAtomic(params: {
+  userId: string
+  archiveId: string
+  cost: number
+  stepLabel: string
+  charge: boolean
+}): Promise<{ jobId?: string; result: 'OK' | 'JOB_ALREADY_RUNNING' | 'INSUFFICIENT_BALANCE' | 'USER_NOT_FOUND' }> {
+  const client = getClient()
+  const { data, error } = await client.rpc('start_main_report_job', {
+    p_user_id: params.userId,
+    p_archive_id: params.archiveId,
+    p_cost: params.cost,
+    p_step_label: params.stepLabel,
+    p_charge: params.charge,
+  })
+  if (error) throw new Error(`原子启动主报告任务失败: ${error.message}`)
+
+  const row = Array.isArray(data) ? data[0] : null
+  if (!row?.result) throw new Error('原子启动主报告任务失败: 返回为空')
+  return {
+    jobId: row.job_id ?? undefined,
+    result: row.result as 'OK' | 'JOB_ALREADY_RUNNING' | 'INSUFFICIENT_BALANCE' | 'USER_NOT_FOUND',
+  }
+}
+
 export async function updateReportJob(jobId: string, updates: Partial<{ status: string; currentStep: number; totalSteps: number; stepLabel: string | null; error: string; completedAt: string }>): Promise<void> {
   const client = getClient()
   await client.from('ReportJob').update({ ...updates, updatedAt: new Date().toISOString() }).eq('id', jobId)
@@ -382,6 +424,19 @@ export interface ServerTransaction {
   description: string
 }
 
+export interface PaymentEventRecord {
+  id: string
+  provider: string
+  eventType: string
+  eventId?: string
+  sessionId: string
+  userId?: string
+  status: 'processing' | 'processed' | 'failed'
+  error?: string
+  createdAt: string
+  processedAt?: string
+}
+
 export async function getTransactionsByUserId(userId: string): Promise<ServerTransaction[]> {
   const client = getClient()
   const { data, error } = await client.from('Transaction').select('*').eq('userId', userId).order('createdAt', { ascending: false })
@@ -406,6 +461,100 @@ export async function createTransaction(userId: string, tx: { type: string; amou
     description: tx.description,
     createdAt: now,
   })
+}
+
+export async function createPaymentEventProcessing(params: {
+  provider: string
+  eventType: string
+  eventId?: string
+  sessionId: string
+  userId?: string
+  metadata?: Record<string, unknown>
+}): Promise<boolean> {
+  const client = getClient()
+  const now = new Date().toISOString()
+  const { error } = await client.from('PaymentEvent').insert({
+    id: crypto.randomUUID(),
+    provider: params.provider,
+    eventType: params.eventType,
+    eventId: params.eventId ?? null,
+    sessionId: params.sessionId,
+    userId: params.userId ?? null,
+    status: 'processing',
+    metadata: params.metadata ?? null,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  if (!error) return true
+  if (error.code === '23505') return false
+  throw new Error(`创建支付事件失败: ${error.message}`)
+}
+
+function rowToPaymentEvent(row: Record<string, unknown>): PaymentEventRecord {
+  return {
+    id: row.id as string,
+    provider: row.provider as string,
+    eventType: row.eventType as string,
+    eventId: (row.eventId as string) ?? undefined,
+    sessionId: row.sessionId as string,
+    userId: (row.userId as string) ?? undefined,
+    status: row.status as PaymentEventRecord['status'],
+    error: (row.error as string) ?? undefined,
+    createdAt: (row.createdAt as string).replace('Z', '').slice(0, 19),
+    processedAt: row.processedAt ? (row.processedAt as string).replace('Z', '').slice(0, 19) : undefined,
+  }
+}
+
+export async function getPaymentEventBySession(provider: string, sessionId: string): Promise<PaymentEventRecord | null> {
+  const client = getClient()
+  const { data, error } = await client
+    .from('PaymentEvent')
+    .select('*')
+    .eq('provider', provider)
+    .eq('sessionId', sessionId)
+    .maybeSingle()
+  if (error || !data) return null
+  return rowToPaymentEvent(data)
+}
+
+export async function retryFailedPaymentEvent(provider: string, sessionId: string): Promise<boolean> {
+  const client = getClient()
+  const now = new Date().toISOString()
+  const { data, error } = await client
+    .from('PaymentEvent')
+    .update({ status: 'processing', error: null, updatedAt: now })
+    .eq('provider', provider)
+    .eq('sessionId', sessionId)
+    .eq('status', 'failed')
+    .select('id')
+  if (error) throw new Error(`重试支付事件失败: ${error.message}`)
+  return (data ?? []).length === 1
+}
+
+export async function completePaymentEvent(params: {
+  provider: string
+  sessionId: string
+  status: 'processed' | 'failed'
+  error?: string
+}): Promise<void> {
+  const client = getClient()
+  const now = new Date().toISOString()
+  const updates: Record<string, unknown> = {
+    status: params.status,
+    updatedAt: now,
+    error: params.error ?? null,
+  }
+  if (params.status === 'processed') {
+    updates.processedAt = now
+  }
+
+  const { error } = await client
+    .from('PaymentEvent')
+    .update(updates)
+    .eq('provider', params.provider)
+    .eq('sessionId', params.sessionId)
+  if (error) throw new Error(`更新支付事件状态失败: ${error.message}`)
 }
 
 // ==================== Invite ====================
@@ -480,7 +629,19 @@ export async function getRedemptionCode(code: string): Promise<RedemptionCodeRec
 
 export async function redeemCode(code: string, userId: string): Promise<void> {
   const client = getClient()
-  await client.from('RedemptionCode').update({ usedBy: userId, usedAt: new Date().toISOString() }).eq('code', code.toUpperCase())
+  const { data, error } = await client
+    .from('RedemptionCode')
+    .update({ usedBy: userId, usedAt: new Date().toISOString() })
+    .eq('code', code.toUpperCase())
+    .is('usedBy', null)
+    .select('code')
+
+  if (error) {
+    throw new Error(`兑换码更新失败: ${error.message}`)
+  }
+  if (!data || data.length === 0) {
+    throw new Error('该兑换码已被使用')
+  }
 }
 
 /**
@@ -745,6 +906,36 @@ export async function createDeepReportJob(archiveId: string, reportType: string,
     .single()
   if (error) throw new Error(`创建深度报告任务失败: ${error.message}`)
   return (data?.id as string) ?? id
+}
+
+export async function startDeepReportJobAtomic(params: {
+  userId: string
+  archiveId: string
+  reportType: string
+  cost: number
+  stepLabel: string
+  charge: boolean
+}): Promise<{
+  jobId?: string
+  result: 'OK' | 'REPORT_ALREADY_EXISTS' | 'JOB_ALREADY_RUNNING' | 'INSUFFICIENT_BALANCE' | 'USER_NOT_FOUND'
+}> {
+  const client = getClient()
+  const { data, error } = await client.rpc('start_deep_report_job', {
+    p_user_id: params.userId,
+    p_archive_id: params.archiveId,
+    p_report_type: params.reportType,
+    p_cost: params.cost,
+    p_step_label: params.stepLabel,
+    p_charge: params.charge,
+  })
+  if (error) throw new Error(`原子启动深度报告任务失败: ${error.message}`)
+
+  const row = Array.isArray(data) ? data[0] : null
+  if (!row?.result) throw new Error('原子启动深度报告任务失败: 返回为空')
+  return {
+    jobId: row.job_id ?? undefined,
+    result: row.result as 'OK' | 'REPORT_ALREADY_EXISTS' | 'JOB_ALREADY_RUNNING' | 'INSUFFICIENT_BALANCE' | 'USER_NOT_FOUND',
+  }
 }
 
 export async function updateDeepReportJob(

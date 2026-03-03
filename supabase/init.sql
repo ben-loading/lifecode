@@ -101,6 +101,29 @@ CREATE INDEX IF NOT EXISTS "Transaction_userId_idx" ON "Transaction"("userId");
 CREATE INDEX IF NOT EXISTS "Transaction_createdAt_idx" ON "Transaction"("createdAt");
 CREATE INDEX IF NOT EXISTS "Transaction_type_idx" ON "Transaction"(type);
 
+-- ==================== 支付事件幂等表 ====================
+CREATE TABLE IF NOT EXISTS "PaymentEvent" (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  provider TEXT NOT NULL,
+  "eventType" TEXT NOT NULL,
+  "eventId" TEXT,
+  "sessionId" TEXT NOT NULL,
+  "userId" TEXT,
+  status TEXT NOT NULL DEFAULT 'processing',
+  metadata JSONB,
+  error TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "processedAt" TIMESTAMP(3),
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "PaymentEvent_provider_sessionId_key" UNIQUE(provider, "sessionId")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "PaymentEvent_provider_eventId_key"
+  ON "PaymentEvent"(provider, "eventId")
+  WHERE "eventId" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "PaymentEvent_provider_status_idx" ON "PaymentEvent"(provider, status);
+CREATE INDEX IF NOT EXISTS "PaymentEvent_userId_idx" ON "PaymentEvent"("userId");
+
 -- ==================== 邀请记录表 ====================
 CREATE TABLE IF NOT EXISTS "Invite" (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -191,6 +214,138 @@ CREATE INDEX IF NOT EXISTS "DeepReportJob_archiveId_idx" ON "DeepReportJob"("arc
 CREATE INDEX IF NOT EXISTS "DeepReportJob_reportType_idx" ON "DeepReportJob"("reportType");
 CREATE INDEX IF NOT EXISTS "DeepReportJob_status_idx" ON "DeepReportJob"(status);
 CREATE INDEX IF NOT EXISTS "DeepReportJob_createdAt_idx" ON "DeepReportJob"("createdAt");
+
+-- ==================== 报告任务原子启动函数 ====================
+CREATE OR REPLACE FUNCTION public.start_main_report_job(
+  p_user_id TEXT,
+  p_archive_id TEXT,
+  p_cost INTEGER,
+  p_step_label TEXT,
+  p_charge BOOLEAN
+)
+RETURNS TABLE(job_id TEXT, result TEXT)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_job_id TEXT;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('main:' || p_archive_id));
+
+  IF EXISTS (
+    SELECT 1
+    FROM public."ReportJob"
+    WHERE "archiveId" = p_archive_id
+      AND status IN ('running', 'processing')
+  ) THEN
+    RETURN QUERY SELECT NULL::TEXT, 'JOB_ALREADY_RUNNING'::TEXT;
+    RETURN;
+  END IF;
+
+  IF p_charge THEN
+    UPDATE public."User"
+    SET balance = balance - p_cost,
+        "updatedAt" = CURRENT_TIMESTAMP
+    WHERE id = p_user_id
+      AND balance >= p_cost;
+
+    IF NOT FOUND THEN
+      IF EXISTS (SELECT 1 FROM public."User" WHERE id = p_user_id) THEN
+        RETURN QUERY SELECT NULL::TEXT, 'INSUFFICIENT_BALANCE'::TEXT;
+      ELSE
+        RETURN QUERY SELECT NULL::TEXT, 'USER_NOT_FOUND'::TEXT;
+      END IF;
+      RETURN;
+    END IF;
+
+    INSERT INTO public."Transaction"(id, "userId", type, amount, description, "createdAt")
+    VALUES (gen_random_uuid()::TEXT, p_user_id, 'consume', p_cost, '主報告生成', CURRENT_TIMESTAMP);
+  END IF;
+
+  v_job_id := gen_random_uuid()::TEXT;
+  INSERT INTO public."ReportJob"(
+    id, "archiveId", status, "currentStep", "totalSteps", "stepLabel", "createdAt", "updatedAt"
+  ) VALUES (
+    v_job_id, p_archive_id, 'running', 0, 6, p_step_label, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+  );
+
+  RETURN QUERY SELECT v_job_id, 'OK'::TEXT;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.start_deep_report_job(
+  p_user_id TEXT,
+  p_archive_id TEXT,
+  p_report_type TEXT,
+  p_cost INTEGER,
+  p_step_label TEXT,
+  p_charge BOOLEAN
+)
+RETURNS TABLE(job_id TEXT, result TEXT)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_job_id TEXT;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('deep:' || p_archive_id || ':' || p_report_type));
+
+  IF EXISTS (
+    SELECT 1
+    FROM public."DeepReport"
+    WHERE "archiveId" = p_archive_id
+      AND "reportType" = p_report_type
+  ) THEN
+    RETURN QUERY SELECT NULL::TEXT, 'REPORT_ALREADY_EXISTS'::TEXT;
+    RETURN;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public."DeepReportJob"
+    WHERE "archiveId" = p_archive_id
+      AND "reportType" = p_report_type
+      AND status IN ('running', 'processing')
+  ) THEN
+    RETURN QUERY SELECT NULL::TEXT, 'JOB_ALREADY_RUNNING'::TEXT;
+    RETURN;
+  END IF;
+
+  IF p_charge THEN
+    UPDATE public."User"
+    SET balance = balance - p_cost,
+        "updatedAt" = CURRENT_TIMESTAMP
+    WHERE id = p_user_id
+      AND balance >= p_cost;
+
+    IF NOT FOUND THEN
+      IF EXISTS (SELECT 1 FROM public."User" WHERE id = p_user_id) THEN
+        RETURN QUERY SELECT NULL::TEXT, 'INSUFFICIENT_BALANCE'::TEXT;
+      ELSE
+        RETURN QUERY SELECT NULL::TEXT, 'USER_NOT_FOUND'::TEXT;
+      END IF;
+      RETURN;
+    END IF;
+
+    INSERT INTO public."Transaction"(id, "userId", type, amount, description, "createdAt")
+    VALUES (
+      gen_random_uuid()::TEXT,
+      p_user_id,
+      'consume',
+      p_cost,
+      '深度報告：' || p_report_type,
+      CURRENT_TIMESTAMP
+    );
+  END IF;
+
+  v_job_id := gen_random_uuid()::TEXT;
+  INSERT INTO public."DeepReportJob"(
+    id, "archiveId", "reportType", status, "currentStep", "totalSteps", "stepLabel", "createdAt", "updatedAt"
+  ) VALUES (
+    v_job_id, p_archive_id, p_report_type, 'running', 0, 4, p_step_label, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+  );
+
+  RETURN QUERY SELECT v_job_id, 'OK'::TEXT;
+END;
+$$;
 
 -- ==================== 初始数据 ====================
 -- 插入测试兑换码

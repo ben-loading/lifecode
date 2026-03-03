@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "worker:report": "tsx scripts/worker-report.ts"
+    "worker:report": "tsx scripts/worker-report.ts",
+    "test:report-concurrency": "tsx scripts/test-report-concurrency.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
