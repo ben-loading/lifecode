@@ -16,6 +16,8 @@
  * 部署建议：Railway / Render / 自有 VPS 等长驻进程环境。
  */
 
+export {}
+
 const POLL_INTERVAL_MS = Number(process.env.REPORT_WORKER_POLL_MS) || 10_000
 const API_BASE = process.env.API_BASE_URL?.replace(/\/$/, '')
 const WORKER_SECRET = process.env.REPORT_WORKER_SECRET

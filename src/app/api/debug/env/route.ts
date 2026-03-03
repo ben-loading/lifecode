@@ -10,6 +10,10 @@ import { NextResponse } from 'next/server'
 import { ensureLLMConfigured } from '@/lib/services/llm-service'
 
 export async function GET() {
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+  }
+
   const env = {
     // Supabase
     NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,

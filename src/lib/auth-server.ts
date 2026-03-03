@@ -45,18 +45,24 @@ export async function getUserIdFromRequest(request: Request): Promise<string | n
 
   let appUser = await getUserById(authUser.id)
   if (!appUser) {
-    appUser = await createUser({
-      id: authUser.id,
-      email: authUser.email!,
-      name: authUser.user_metadata?.name ?? authUser.email!.split('@')[0],
-      balance: NEW_USER_BALANCE,
-      inviteRef: genInviteRef(),
-    })
-    await createTransaction(appUser.id, {
-      type: 'topup',
-      amount: NEW_USER_BALANCE,
-      description: '初始体验能量',
-    })
+    try {
+      appUser = await createUser({
+        id: authUser.id,
+        email: authUser.email!,
+        name: authUser.user_metadata?.name ?? authUser.email!.split('@')[0],
+        balance: NEW_USER_BALANCE,
+        inviteRef: genInviteRef(),
+      })
+      await createTransaction(appUser.id, {
+        type: 'topup',
+        amount: NEW_USER_BALANCE,
+        description: '初始体验能量',
+      })
+    } catch (createErr) {
+      // 并发首次请求下可能触发唯一约束冲突，失败后再查一次兜底
+      appUser = await getUserById(authUser.id)
+      if (!appUser) throw createErr
+    }
   }
 
   return appUser.id

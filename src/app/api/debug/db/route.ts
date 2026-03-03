@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
-import { getUserById, createUser } from '@/lib/db'
+import { getUserById } from '@/lib/db'
 
 /**
  * 诊断端点：测试数据库连接和用户查询
  * 访问：/api/debug/db?userId=xxx
  */
 export async function GET(request: Request) {
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 })
+  }
+
   const { searchParams } = new URL(request.url)
   const userId = searchParams.get('userId')
 
@@ -37,21 +41,6 @@ export async function GET(request: Request) {
       }
     } else {
       result.user = null
-      
-      // 尝试创建用户（测试写入权限）
-      try {
-        const testUser = await createUser({
-          id: userId,
-          email: 'test@example.com',
-          name: 'Test User',
-          balance: 20,
-          inviteRef: 'testref123',
-        })
-        result.userCreated = true
-        result.createdUser = testUser
-      } catch (createError) {
-        result.createError = createError instanceof Error ? createError.message : String(createError)
-      }
     }
   } catch (error) {
     result.error = error instanceof Error ? error.message : String(error)

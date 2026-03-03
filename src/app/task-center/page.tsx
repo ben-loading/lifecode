@@ -76,7 +76,7 @@ export default function TaskCenterPage() {
                 {t('加入 Discord 社群參與活動，獲取積分兌換碼後在此處兌換。')}
               </p>
               <Button
-                onClick={() => window.open(DISCORD_INVITE_URL, '_blank')}
+                onClick={() => window.open(DISCORD_INVITE_URL, '_blank', 'noopener,noreferrer')}
                 className="w-full gap-2"
               >
                 <ExternalLink className="w-4 h-4" />

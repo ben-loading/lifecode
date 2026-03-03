@@ -331,7 +331,7 @@ export function DeepReadingPage({
   }
 
   const handleJoinDiscord = () => {
-    window.open('https://discord.gg/lifelabs', '_blank')
+    window.open('https://discord.gg/lifelabs', '_blank', 'noopener,noreferrer')
   }
 
   return (

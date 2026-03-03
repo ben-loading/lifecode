@@ -3,13 +3,11 @@ import { getUserIdFromRequest } from '@/lib/auth-server'
 import {
   getArchiveById,
   getUserById,
-  updateUserBalance,
-  createTransaction,
-  createDeepReportJob,
   updateDeepReportJob,
   getRunningDeepReportJobForArchive,
   getDeepReportByArchiveAndType,
   getLastDeepReportJobForArchive,
+  startDeepReportJobAtomic,
 } from '@/lib/db'
 import { parseJsonBody, badRequest, unauthorized } from '@/lib/api-utils'
 import { DEEP_REPORT_COST, DEEP_REPORT_TYPES } from '@/lib/costs'
@@ -82,17 +80,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '該深度報告已生成', code: 'REPORT_ALREADY_EXISTS' }, { status: 400 })
     }
 
-    if (!canRetryWithoutCharge) {
-      await updateUserBalance(userId, -DEEP_REPORT_COST)
-      await createTransaction(userId, {
-        type: 'consume',
-        amount: DEEP_REPORT_COST,
-        description: `深度報告：${reportType}`,
-      })
-    }
-
     let finalStatus: 'completed' | 'failed' = 'failed'
-    const jobId = await createDeepReportJob(archiveId, reportType, 'running', '准备输入')
+    const started = await startDeepReportJobAtomic({
+      userId,
+      archiveId,
+      reportType,
+      cost: DEEP_REPORT_COST,
+      stepLabel: '准备输入',
+      charge: !canRetryWithoutCharge,
+    })
+    if (started.result === 'REPORT_ALREADY_EXISTS') {
+      return NextResponse.json({ error: '該深度報告已生成', code: 'REPORT_ALREADY_EXISTS' }, { status: 400 })
+    }
+    if (started.result === 'JOB_ALREADY_RUNNING') {
+      return NextResponse.json(
+        { error: '該深度報告已有任務進行中，請稍後再試', code: 'JOB_ALREADY_RUNNING' },
+        { status: 409 }
+      )
+    }
+    if (started.result === 'INSUFFICIENT_BALANCE') {
+      return NextResponse.json(
+        { message: '不足能量要充值', error: 'INSUFFICIENT_BALANCE' },
+        { status: 402 }
+      )
+    }
+    if (started.result === 'USER_NOT_FOUND') {
+      return NextResponse.json({ error: '用戶不存在' }, { status: 404 })
+    }
+    if (!started.jobId) {
+      return NextResponse.json({ error: '任務創建失敗' }, { status: 500 })
+    }
+    const jobId = started.jobId
     try {
       await generateDeepReport(archiveId, reportType as DeepReportType)
       const reportWritten = await getDeepReportByArchiveAndType(archiveId, reportType)
