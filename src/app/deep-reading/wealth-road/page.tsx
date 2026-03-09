@@ -212,16 +212,16 @@ function WealthRoadContentInner() {
 
         <section className="space-y-6">
           <h2 className="text-center text-xs tracking-widest text-muted-foreground uppercase">
-            人 生 大 運 財 富 量 化 曲 線
+            人 生 大 限 財 富 量 化 曲 線
           </h2>
           <div className="space-y-6">
             {大运财富列表.map((运, index) => (
               <div key={`${运.区间}-${运.岁数}-${index}`} className="space-y-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="text-sm font-medium text-foreground tracking-wide">
-                    {运.区间}（{运.岁数}）：{运.干支} 运
+                    {运.区间}（{运.岁数}）：{运.干支} 大限
                   </p>
-                  <span className="text-xs text-muted-foreground">{运.宫位}</span>
+                  <span className="text-xs text-muted-foreground">大限宫位：{运.宫位}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <p className="text-xs text-muted-foreground">財富總評分</p>

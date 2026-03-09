@@ -252,19 +252,19 @@ function CareerPathContentInner() {
 
         <Separator className="bg-border" />
 
-        {/* 2. 人生大运事业能量曲线 */}
+        {/* 2. 人生大限事业能量曲线 */}
         <section className="space-y-4">
           <h2 className="text-center text-xs tracking-widest text-muted-foreground uppercase">
-            人 生 大 運 事 業 能 量 曲 線
+            人 生 大 限 事 業 能 量 曲 線
           </h2>
           <div className="space-y-6">
             {大运列表.map((运, index) => (
               <div key={`${运.区间}-${运.岁数}-${index}`} className="space-y-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="text-sm font-medium text-foreground tracking-wide">
-                    {运.区间}（{运.岁数}）：{运.干支} 运
+                    {运.区间}（{运.岁数}）：{运.干支} 大限
                   </p>
-                  <span className="text-xs text-muted-foreground">{运.宫位}</span>
+                  <span className="text-xs text-muted-foreground">大限宫位：{运.宫位}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <p className="text-xs text-muted-foreground">事業總評分</p>

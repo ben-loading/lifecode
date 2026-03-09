@@ -134,7 +134,7 @@ function FutureFortuneContentInner() {
               </p>
             </div>
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground tracking-wider">{t('當前大運')}</p>
+              <p className="text-xs text-muted-foreground tracking-wider">{t('當前大限')}</p>
               <p className="text-sm text-foreground/80 leading-[1.7] pl-3 border-l border-border">
                 {命格锚点.当前大运}
               </p>
