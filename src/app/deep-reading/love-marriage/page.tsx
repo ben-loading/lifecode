@@ -218,13 +218,13 @@ function LoveMarriageContentInner() {
 
         <section className="space-y-6">
           <h2 className="text-center text-xs tracking-widest text-muted-foreground uppercase">
-            人 生 大 運 情 感 質 量 曲 線
+            人 生 大 限 情 感 質 量 曲 線
           </h2>
           <div className="space-y-6">
             {大运情感列表.map((运, index) => (
               <div key={`${运.区间}-${运.岁数}-${index}`} className="space-y-3">
                 <p className="text-sm font-medium text-foreground tracking-wide">
-                  {运.区间}（{运.岁数}）：{运.干支} 运
+                  {运.区间}（{运.岁数}）：{运.干支} 大限
                 </p>
                 <div className="flex items-center gap-3">
                   <p className="text-xs text-muted-foreground">幸福指數</p>
